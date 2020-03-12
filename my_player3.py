@@ -3,6 +3,7 @@ import sys
 import numpy as np
 import timeit
 import copy
+import json
 
 draw_reward = 0
 win_reward = 100
@@ -35,7 +36,12 @@ def writeOutput(result, path = "/Users/xiaodongzheng/OneDrive - University of So
             output.write("PASS")
         else:
             output.write(''+ str(result[0]) + ',' + str(result[1]))
-        
+
+class NpEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)       
 class Encoder():
     def  __init__(self, board_size):
         
@@ -101,7 +107,7 @@ class Board:
         self.previous_board = previous_board
         self.size = size
         self.num_moves = 0
-        self.max_moves = size * size -1
+        self.max_moves = size * size - 1
         self.game_state = IN_PLAY
         self.dead_pieces = []
         self.komi = size/2
@@ -237,14 +243,17 @@ class Board:
     
      #check if the move is valid
     def is_valid_place(self,row,col):
-        if not self.isOccupied(row,col):
+        if not self.isOccupied(row,col) or not self.isInBound(row,col):
             return False
-        if not self.isInBound(row,col):
+        if not self.has_liberty(row,col):
             return False
-        if self.is_violate_ko_rule(row,col):
-            return False
-        if self.is_an_eye(row,col):
-            return False
+        else:
+            if self.has_dead_pieces():
+                self.update_game_state()
+            if self.is_violate_ko_rule(row,col):
+                return False
+            if self.is_an_eye(row,col):
+                return False
         return True
 
     def legal_moves(self):
@@ -316,7 +325,7 @@ class Board:
         for ally in allies:
             neighbors = self.find_neighbors(row,col)
             for neighbor in neighbors:
-                if self.current_board[row][col] == blank_space:
+                if self.current_board[neighbor[0]][neighbor[1]] == blank_space:
                     return True
         return False
 
@@ -359,15 +368,22 @@ class Qplayer:
     
     def make_one_move(self):
         if self.board.is_game_ended():
+
             return
         row, col = self.get_best_move()
         self.history_states.append((self.encoder.encode_board(self.board),(row,col)))
+
         
         if row == col == -1:
             return "PASS"
         else:
             reward = self.board.place_stone(row,col)
             return (row,col)
+
+    def save_learned(self):
+        with open ('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/train_set.json','w') as json_file:
+            dump = json.dumps(self.q_values, cls = NpEncoder)
+            print(dump)
 
     def get_state_reward(self,state):
         board_arr = self.encoder.decode_state(state)
@@ -401,6 +417,7 @@ class Qplayer:
                 q[move[0]][move[1]] = q[move[0]][move[1]] * (1 - self.alpha) + self.alpha * (state_reward + self.gamma * max_q)
             max_q = np.max(q)
         self.history_states = []
+        self.save_learned()
 
 # class MinmaxPlayer:
 #     def __init__(self):
@@ -413,12 +430,14 @@ if __name__ == "__main__":
     encoder = Encoder(boardSize)
     player = Qplayer(encoder,board,side)
     action = player.make_one_move()
-    
-    game_state = player.board.game_state
     #output the move
     writeOutput(action)
-    if game_state == WIN or game_state == LOSE:
-        player.train_after_end(game_state)
+    if player.board.is_game_ended():
+        game_state = player.board.game_state
+        if game_state == WIN or game_state == LOSE:
+            player.train_after_end(game_state)
+    else:
+        print(player.board.game_state," ", player.board.num_moves)
 
 
 
