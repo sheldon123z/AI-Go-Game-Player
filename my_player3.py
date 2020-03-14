@@ -1,16 +1,18 @@
 import random
 import sys
 import numpy as np
+from ast import literal_eval as make_tuple
 import timeit
 import copy
 import json
+import os
 
 draw_reward = 0
 win_reward = 100
 lose_reward = -100
 
 boardSize = 5
-max_moves = boardSize * boardSize - 1
+
 blank_space = 0
 black = 1
 white = 2
@@ -30,6 +32,12 @@ def readInput(path = "/Users/xiaodongzheng/OneDrive - University of Southern Cal
         
         return side, last_board, current_board
 
+def read_moves(path="/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/moves.txt"):
+    with open (path,'r') as input:
+        lines = input.readlines()
+        current_moves = int(lines[0])
+        return current_moves 
+
 def writeOutput(result, path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/output.txt"):
     with open(path,'w') as output:
         if(result == "PASS"):
@@ -37,82 +45,42 @@ def writeOutput(result, path = "/Users/xiaodongzheng/OneDrive - University of So
         else:
             output.write(''+ str(result[0]) + ',' + str(result[1]))
 
+
+def write_moves(result,path="/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/moves.txt"):
+    with open(path,'w') as output:
+        output.write(result)
+
+
 class NpEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, np.ndarray):
             return obj.tolist()
         return json.JSONEncoder.default(self, obj)       
-class Encoder():
-    def  __init__(self, board_size):
-        
-        self.board_width = board_size
-        self.board_height = board_size
-    
-
-    def encode_board(self, board):
-      #2D array
-      board_matrix = np.zeros((boardSize,boardSize))
-      side = board.side
-      #self is 1 opponent is -1
-      for r in range(self.board_width):
-          for c in range(self.board_width):
-              if board.current_board[r][c] == side:
-                  board_matrix[r, c] = 1
-              else:
-                  board_matrix[r, c] = -1
-          #set the ko point as 1 in layer 2
-            #   if board.is_violate_ko_rule(r,c):
-            #       board_matrix[1,r,c] = 1
-      state = ''.join([str(board_matrix[j][i])+' ' for j in range(boardSize) for i in range(boardSize)])
-      #print(state,type(state))
-      return state
-    def decode_state(self,state):
-        board_matrix = np.zeros((boardSize,boardSize))
-        l = state.split()
-        #print(l)
-        data = []
-        for n in l:
-            data.append(int(float(n)))
-
-        for i in range(boardSize):
-            for j in range(boardSize):
-                board_matrix[j][i] = data.pop(0)
-
-        #transpose the array list
-        l2 = np.transpose(board_matrix)
-        #print(l2,type(l2))
-        return l2
-    
-    def encode_point(self,row, col):
-      #将坐标点转换为整数索引
-      return self.board_width * row + col
-    
-    def decode_point_index(self, code):
-      row = code // self.board_width
-      col = code % self.board_width
-      return (row, col)
-    
-    def num_points(self):
-      return self.board_width * self.board_height
-    
-    def shape(self):
-      return self.board_height, self.board_width
 
 class Board:
-    def __init__(self, side, previous_board, current_board, size = 5):
+    def __init__(self, size = 5):
 
-        #side choose
-        self.side = side 
-        self.current_board = current_board
-        self.previous_board = previous_board
         self.size = size
         self.num_moves = 0
-        self.max_moves = size * size - 1
+        self.max_moves = 12
         self.game_state = IN_PLAY
         self.dead_pieces = []
         self.komi = size/2
+        self.me_passed_move = False
+        self.op_passed_move = False
         self.capture_reward = 0
-    
+
+    def set_board(self, side, previous_board, current_board):
+        self.side = side 
+        self.current_board = current_board
+        self.previous_board = previous_board
+
+    def set_passed_step(self,side):
+        if side == self.side:
+            self.me_passed_move = True
+        else:
+            self.op_passed_move = True
+
     def if_first_play(self):
         return self.side == black
 
@@ -167,11 +135,11 @@ class Board:
         #remove dead pieces
         if self.has_dead_pieces():
             self.remove_dead_pieces()
-        status = self.judge()
+        status = self.check_game_status()
         self.game_state = status
 
         
-    def judge(self):
+    def check_game_status(self):
         my_score, op_score = self.current_score_without_komi()
         result = IN_PLAY
         if self.side == white:
@@ -183,34 +151,77 @@ class Board:
         if not self.is_game_ended():
             return IN_PLAY
         else:   
-            if my_score >= op_score:
+            if my_score > op_score:
                 result = WIN
-            elif my_score <= op_score:
+            elif my_score < op_score:
                 result = LOSE
             else:
                 result = DRAW
         return result
 
+    def is_same_board(self):
+        
+        for row in range(self.size):
+            for col in range(self.size):
+                if self.current_board[row][col] != self.previous_board[row][col]:
+                    return False
+        return True
+    def get_board_diff_step(self):
+        
+        if not self.is_same_board():
+            for row in range(self.size):
+                for col in range(self.size):
+                    if self.current_board[row][col] != self.previous_board[row][col]:
+                        return row,col
+        else:
+            return -1,-1
+
+
+
+    def is_start_of_game(self):
+        chess_count = 0
+        chess_color = 0
+        for row in range(self.size):
+            for col in range(self.size):
+                if self.previous_board[row][col] != 0:
+                    chess_count+=1
+                    chess_color = self.previous_board[row][col]
+        if chess_count == 0:
+            return True
+        if chess_count == 1 and chess_color != self.side:
+            return True
+        return False
+    
     def is_game_ended(self):
         #exceeded the maximum moevs
-        if self.num_moves >= self.size * self.size - 1:
+        self.num_moves = read_moves()
+
+        if self.num_moves >= self.max_moves:
+            return True
+        elif self.op_passed_move and self.me_passed_move:
             return True
         return False
 
+    def increase_move(self):
+        current_moves = read_moves()
+        current_moves+=1
+        write_moves(str(current_moves))
+
     def place_stone(self, row, col):
-        #if the position is valid to place a stone then place a stone
-        if self.is_valid_place(row,col):
-            #place a stone
-            self.current_board[row][col]=self.side 
-            #先增加1步
-            self.num_moves += 1
-            #check if has dead_piece and update the board 
-            self.update_game_state()
-            #check if the move create capture reward
-            if self.capture_reward != 0:
-                reward = self.capture_reward
-                self.capture_reward = 0
-                return reward
+        #place a stone
+        self.current_board[row][col]=self.side 
+
+        #update the current moves number of our side
+        self.increase_move()
+
+        #check if has dead_piece and update the board 
+        self.update_game_state()
+
+        #check if the move create capture reward
+        if self.capture_reward != 0:
+            reward = self.capture_reward
+            self.capture_reward = 0
+            return reward
             
     def find_neighbors(self,row,col):
         neighbors = []
@@ -323,7 +334,7 @@ class Board:
     def has_liberty(self,row,col):
         allies = self.all_allies(row,col)
         for ally in allies:
-            neighbors = self.find_neighbors(row,col)
+            neighbors = self.find_neighbors(ally[0],ally[1])
             for neighbor in neighbors:
                 if self.current_board[neighbor[0]][neighbor[1]] == blank_space:
                     return True
@@ -331,16 +342,22 @@ class Board:
 
         
 class Qplayer:
-    def __init__(self, encoder, board = None, side = None, alpha = 0.5, gamma = 0.8 ,initial_value = 0.5):
+    def __init__(self, board = None, side = None, alpha = 0.5, gamma = 0.8 ,initial_value = 0.5):
         self.board = board
         self.side = side
         self.alpha = alpha
         self.gamma = gamma
-        self.encoder = encoder
         self.q_values = {}
         self.history_states = []
         self.initial_value = initial_value
 
+    def init_q_values(self):
+        with open ('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/train_set.json','r') as f:
+            lines = f.readlines()
+            for line in lines:
+                data = json.loads(line)
+                self.q_values = data
+        
     def Q(self, state):
         if state not in self.q_values:
             q_val = np.zeros((5,5))
@@ -348,56 +365,125 @@ class Qplayer:
             self.q_values[state] = q_val
         return self.q_values[state]
 
-    def get_best_move(self):
-        state = self.encoder.encode_board(self.board)
-        legal_moves = self.board.legal_moves()
+    def get_best_move(self,board):
+        legal_moves = board.legal_moves()
         #如果没有legal move就返回pass
         if not(legal_moves):
             return -1, -1
 
+        state = self.encode_board(board.side, board.current_board,legal_moves[0],legal_moves[1])
+
         q_values = self.Q(state)
+        # print(q_values,type(q_values))
         #选择一个在legal move里面并且是最大的q值的坐标点
         while True:
-            point = np.unravel_index(q_values.argmax(), q_values.shape)
+            point = self.find_max_coord(q_values)
             if point in legal_moves:
                 return point[0],point[1]
             #如果没有在legal move 就说明当前点不可以选，更新这个点的qvalue为-1，即在当前棋面下这个点永远不走
             else:
                 q_values[point[0]][point[1]] = -1
 
-    
-    def make_one_move(self):
-        if self.board.is_game_ended():
+    def find_max_coord(self,q):
+        max_q = -np.inf
+        row = 0
+        col = 0
+        for i in range(boardSize):
+            for j in range(boardSize):
+                if q[i][j] > max_q:
+                    max_q = q[i][j]
+                    row, col = i, j
+        return (row, col)
 
-            return
-        row, col = self.get_best_move()
-        self.history_states.append((self.encoder.encode_board(self.board),(row,col)))
-
-        
+    def make_one_move(self,row,col):
         if row == col == -1:
+            self.board.set_passed_step(self.side)
             return "PASS"
         else:
-            reward = self.board.place_stone(row,col)
-            return (row,col)
+            self.board.place_stone(row,col)
+            return row,col
+            
 
     def save_learned(self):
-        with open ('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/train_set.json','w') as json_file:
+        with open ('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/train_set.json','a+') as json_file:
+            
             dump = json.dumps(self.q_values, cls = NpEncoder)
-            print(dump)
+            print("dump: ".format(dump))
+            json_file.seek(0)
+            data = json_file.read(10)
+            if len(data)>0:
+                json_file.write("\n")
+            json_file.write(dump)
+
+    def save_states(self,state):
+        with open ('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/history_states.txt','a+') as file:
+            file.seek(0)
+            data = file.read()
+            if len(data)>0:
+                file.write("\n")
+            file.write(state)
+
+    def read_states(self):
+        with open ('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/history_states.txt','r+') as file:
+            lines = file.readlines()
+            return lines
+
+    def encode_board(self, side, board, row, col):
+          #2D array
+        board_matrix = np.zeros((boardSize,boardSize),dtype=int)
+        #self is 1 opponent is -1
+        for r in range(boardSize):
+            for c in range(boardSize):
+                if board[r][c] == side:
+                    board_matrix[r][c] = 1
+                elif board[r][c] == blank_space:
+                    board_matrix[r][c] = 0
+                else:
+                    board_matrix[r][c] = -1
+
+        state = ''.join([str(board_matrix[j][i])+" " for j in range(boardSize) for i in range(boardSize)]) +"#"+ str((row,col))
+        
+        return state
+
+    def decode_state(self,state):
+        board_matrix = np.zeros((boardSize,boardSize))
+        print(state)
+        arr = state.split(" ")
+        data = []
+        for n in arr:
+            data.append(int(n))
+        
+        for i in range(boardSize):
+            for j in range(boardSize):
+                if len(data) > 0:
+                    board_matrix[j][i] = data.pop(0)
+        #transpose the array list
+        l2 = np.transpose(board_matrix)
+        #print(l2,type(l2))
+        return l2
 
     def get_state_reward(self,state):
-        board_arr = self.encoder.decode_state(state)
+        arr = state.split(" ")
+        # board_arr = self.decode_state(state)
         score = 0
-        for row in range(len(board_arr)):
-            for col in range(len(board_arr[0])):
-                score += board_arr[row][col]
+        for num in arr:
+            if num:
+                score += int(num)
+        # for row in range(len(board_arr)):
+        #     for col in range(len(board_arr[0])):
+        #         score += board_arr[row][col]
         return score
+
+
+    def get_last_move(self,board):
+        row, col = self.board.get_board_diff_step()
+        if not(row==-1 and col == -1):
+            return row, col
         
     def train_after_end(self,result):
         if result == DRAW:
             result_reward = draw_reward
         else:
-            my_score, op_score = self.board.get_current_score_with_komi()
             if result == WIN:
                 result_reward = win_reward
             if result == LOSE:
@@ -405,39 +491,111 @@ class Qplayer:
         self.history_states.reverse()
         max_q = -1
         for hist in self.history_states:
-            state, move = hist
+            l = hist.split("#")
+            #get the board state information
+            board_state = l[0]
+            position = l[1]
+            move = make_tuple(position)
+            
+            state_reward = self.get_state_reward(board_state)
+            print("state {} state reward {}\n".format(board_state,state_reward))
+            # print("move:{}".format(move))
+            # tuple_state = make_tuple(state)
+            
             #获取q value matrix
             q = self.Q(state)
-
-            state_reward = self.get_state_reward(state)
-
+            #print("q value: {}".format(q),type(q))
+            
             if max_q< 0:
                 q[move[0]][move[1]] = result_reward
             else:
                 q[move[0]][move[1]] = q[move[0]][move[1]] * (1 - self.alpha) + self.alpha * (state_reward + self.gamma * max_q)
             max_q = np.max(q)
-        self.history_states = []
         self.save_learned()
+
+    def clear_history_file(self, path ="/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/history_states.txt"):
+        file = open(path,'w').close()
+        
+            
+    #set moves to 0
+    def clean_up_after_end(self,result):
+        if not board.is_game_ended():
+            return
+        #set 0 to moves
+        write_moves("0")
+        #clear history states file
+        self.clear_history_file()
+         
 
 # class MinmaxPlayer:
 #     def __init__(self):
         
 
 if __name__ == "__main__":
-    time_limit = 300
+
+    #initialize the board 
     side, last_board, current_board = readInput()
-    board = Board(side,last_board, current_board, boardSize)
-    encoder = Encoder(boardSize)
-    player = Qplayer(encoder,board,side)
-    action = player.make_one_move()
-    #output the move
-    writeOutput(action)
-    if player.board.is_game_ended():
-        game_state = player.board.game_state
-        if game_state == WIN or game_state == LOSE:
-            player.train_after_end(game_state)
+    board = Board(boardSize)
+    board.set_board(side,last_board, current_board)
+    #create a player
+    player = Qplayer(board,side)
+    
+    #if this is the start of the game
+    if(board.is_start_of_game()):
+        write_moves("0")
+        row, col = player.get_best_move(board)
+        action = player.make_one_move(row, col)
+        print("current_moves: {}".format(board.num_moves))
+        state = player.encode_board(board.side, board.current_board,row,col)
+        player.save_states(state)
     else:
-        print(player.board.game_state," ", player.board.num_moves)
+        if board.is_same_board():
+            board.op_passed_move = True
+        #read the history states 
+        states = player.read_states()
+        for state in states:
+            player.history_states.append(state)
+        
+        #read q values from file
+        player.init_q_values()
+        #get the best move
+        action = player.get_best_move(board)
+        #if the action is pass then 
+        if action[0] == -1 and action[1] == -1:
+            board.set_passed_step(player.side)
+            board.increase_move()
+            board.num_moves = read_moves()
+            print("current_moves: {} this move is PASS".format(board.num_moves))
+            action = "PASS"
+            print("me: {} op: {}".format(board.me_passed_move,board.op_passed_move))
+            
+            #check if game is ended
+            if board.is_game_ended():
+                result = board.check_game_status()
+                player.train_after_end(result)
+                player.clean_up_after_end(result)
+                print("predicted result: {}".format(result))
+        else:
+            #make a move
+            action = player.make_one_move(action[0],action[1])
+            print("current_moves: {} this move {}".format(board.num_moves,(action[0],action[1])))
+            state = player.encode_board(board.side, board.current_board,action[0],action[1])
+            #save state to file and append the state to history states
+            player.save_states(state)
+            player.history_states.append(state)
+            
+            #check if game is ended after the move,train if game is ended
+            if board.is_game_ended():
+                result = board.check_game_status()
+                player.train_after_end(result)
+                player.clean_up_after_end(result)
+                print("predicted result: {}".format(result))
+
+        #output the move
+    writeOutput(action)
+
+ 
+    
 
 
 

@@ -142,9 +142,9 @@ do
     echo "You play as White Player | Win: $white_win_time | Lose: $((play_time/2-white_win_time-black_tie)) | Tie: $white_tie"
 done
 
-# if [ -f "input.txt" ]; then
-#     rm input.txt
-# fi
+if [ -f "input.txt" ]; then
+    rm input.txt
+fi
 # if [ -f "output.txt" ]; then
 #     rm output.txt
 # fi
