@@ -352,11 +352,14 @@ class Qplayer:
         self.initial_value = initial_value
 
     def init_q_values(self):
-        with open ('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/train_set.json','r') as f:
-            lines = f.readlines()
-            for line in lines:
-                data = json.loads(line)
-                self.q_values = data
+        with open ('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/train_set.json','r+') as f:
+            # lines = f.readlines()
+            # for line in lines:
+            try:
+                data = json.load(f)
+                self.q_values.update(data)
+            except:
+                print("no q values in json file")
         
     def Q(self, state):
         if state not in self.q_values:
@@ -404,16 +407,19 @@ class Qplayer:
             return row,col
             
 
-    def save_learned(self):
-        with open ('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/train_set.json','a+') as json_file:
-            
-            dump = json.dumps(self.q_values, cls = NpEncoder)
-            print("dump: ".format(dump))
-            json_file.seek(0)
-            data = json_file.read(10)
-            if len(data)>0:
-                json_file.write("\n")
-            json_file.write(dump)
+    def update_learned(self):
+        with open('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/train_set.json','r+') as json_file:
+            try:
+                dic = json.load(json_file)
+                dic.update(self.q_values)
+                json_file.seek(0)
+                json.dump(dic,json_file,cls = NpEncoder)
+            except:
+                json.dump(self.q_values,json_file,cls = NpEncoder)
+                
+
+
+
 
     def save_states(self,state):
         with open ('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/history_states.txt','a+') as file:
@@ -441,7 +447,7 @@ class Qplayer:
                 else:
                     board_matrix[r][c] = -1
 
-        state = ''.join([str(board_matrix[j][i])+" " for j in range(boardSize) for i in range(boardSize)]) +"#"+ str((row,col))
+        state = ''.join([str(board_matrix[j][i])+" " for j in range(boardSize) for i in range(boardSize)]) +"#"+ str(row)+ "#" + str(col)
         
         return state
 
@@ -474,11 +480,6 @@ class Qplayer:
         #         score += board_arr[row][col]
         return score
 
-
-    def get_last_move(self,board):
-        row, col = self.board.get_board_diff_step()
-        if not(row==-1 and col == -1):
-            return row, col
         
     def train_after_end(self,result):
         if result == DRAW:
@@ -489,29 +490,32 @@ class Qplayer:
             if result == LOSE:
                 result_reward = lose_reward
         self.history_states.reverse()
-        max_q = -1
+        max_q = -np.inf
         for hist in self.history_states:
             l = hist.split("#")
             #get the board state information
             board_state = l[0]
-            position = l[1]
-            move = make_tuple(position)
+            #get the step coordinate 落子坐标
+            row = int(l[1])
+            col = int(l[2])
             
+            #获取状态奖励
             state_reward = self.get_state_reward(board_state)
-            print("state {} state reward {}\n".format(board_state,state_reward))
-            # print("move:{}".format(move))
-            # tuple_state = make_tuple(state)
+            # print("state {} state reward {}\n".format(board_state,state_reward))
             
             #获取q value matrix
-            q = self.Q(state)
-            #print("q value: {}".format(q),type(q))
+            q = self.Q(hist)
             
+            #print("q value: {}".format(q),type(q))
+
+            #如果是最后一步的状态，即最大值初设置为-
             if max_q< 0:
-                q[move[0]][move[1]] = result_reward
+                q[row][col] = result_reward
             else:
-                q[move[0]][move[1]] = q[move[0]][move[1]] * (1 - self.alpha) + self.alpha * (state_reward + self.gamma * max_q)
+                q[row][col] = q[row][col] * (1 - self.alpha) + self.alpha * (state_reward + self.gamma * max_q)
             max_q = np.max(q)
-        self.save_learned()
+        
+        self.update_learned()
 
     def clear_history_file(self, path ="/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/history_states.txt"):
         file = open(path,'w').close()
@@ -525,7 +529,56 @@ class Qplayer:
         write_moves("0")
         #clear history states file
         self.clear_history_file()
-         
+
+    def play(self):
+        if(self.board.is_start_of_game()):
+            write_moves("0")
+            row, col = self.get_best_move(self.board)
+            action = self.make_one_move(row, col)
+            print("current_moves: {}".format(self.board.num_moves))
+            state = self.encode_board(side, self.oard.current_board,row,col)
+            self.save_states(state)
+        else:
+            if self.board.is_same_board():
+                self.board.op_passed_move = True
+            #read the history states 
+            states = self.read_states()
+            for state in states:
+                self.history_states.append(state)
+            
+            #read q values from file
+            self.init_q_values()
+            #get the best move
+            action = self.get_best_move(self.board)
+            #if the action is pass then 
+            if action[0] == -1 and action[1] == -1:
+                self.board.set_passed_step(self.side)
+                self.board.increase_move()
+                self.board.num_moves = read_moves()
+                print("current_moves: {} this move is PASS".format(self.board.num_moves))
+                action = "PASS"
+                
+                #check if game is ended
+                if self.board.is_game_ended():
+                    result = self.board.check_game_status()
+                    self.train_after_end(result)
+                    self.clean_up_after_end(result)
+                    print("predicted result: {}".format(result))
+            else:
+                #make a move
+                action = self.make_one_move(action[0],action[1])
+                print("current_moves: {} this move {}".format(self.board.num_moves,(action[0],action[1])))
+                state = self.encode_board(side, self.board.current_board,action[0],action[1])
+                #save state to file and append the state to history states
+                self.save_states(state)
+                self.history_states.append(state)
+                
+                #check if game is ended after the move,train if game is ended
+                if self.board.is_game_ended():
+                    result = self.board.check_game_status()
+                    self.train_after_end(result)
+                    self.clean_up_after_end(result)
+                    print("predicted result: {}".format(result)) 
 
 # class MinmaxPlayer:
 #     def __init__(self):
@@ -567,7 +620,6 @@ if __name__ == "__main__":
             board.num_moves = read_moves()
             print("current_moves: {} this move is PASS".format(board.num_moves))
             action = "PASS"
-            print("me: {} op: {}".format(board.me_passed_move,board.op_passed_move))
             
             #check if game is ended
             if board.is_game_ended():
