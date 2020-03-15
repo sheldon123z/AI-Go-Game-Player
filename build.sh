@@ -88,7 +88,7 @@ play()
 	echo $rst
 }
 
-play_time=20
+play_time=2
 
 ### start playing ###
 
@@ -145,9 +145,9 @@ done
 if [ -f "input.txt" ]; then
     rm input.txt
 fi
-# if [ -f "output.txt" ]; then
-#     rm output.txt
-# fi
+if [ -f "output.txt" ]; then
+    rm output.txt
+fi
                                       
 if [ -e "my_player.class" ]; then
     rm *.class

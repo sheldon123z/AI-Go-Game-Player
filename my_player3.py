@@ -536,7 +536,7 @@ class Qplayer:
             row, col = self.get_best_move(self.board)
             action = self.make_one_move(row, col)
             print("current_moves: {}".format(self.board.num_moves))
-            state = self.encode_board(side, self.oard.current_board,row,col)
+            state = self.encode_board(side, self.board.current_board,row,col)
             self.save_states(state)
         else:
             if self.board.is_same_board():
@@ -580,6 +580,8 @@ class Qplayer:
                     self.clean_up_after_end(result)
                     print("predicted result: {}".format(result)) 
 
+        return action
+
 # class MinmaxPlayer:
 #     def __init__(self):
         
@@ -592,58 +594,58 @@ if __name__ == "__main__":
     board.set_board(side,last_board, current_board)
     #create a player
     player = Qplayer(board,side)
-    
+    action = player.play()
     #if this is the start of the game
-    if(board.is_start_of_game()):
-        write_moves("0")
-        row, col = player.get_best_move(board)
-        action = player.make_one_move(row, col)
-        print("current_moves: {}".format(board.num_moves))
-        state = player.encode_board(board.side, board.current_board,row,col)
-        player.save_states(state)
-    else:
-        if board.is_same_board():
-            board.op_passed_move = True
-        #read the history states 
-        states = player.read_states()
-        for state in states:
-            player.history_states.append(state)
+    # if(board.is_start_of_game()):
+    #     write_moves("0")
+    #     row, col = player.get_best_move(board)
+    #     action = player.make_one_move(row, col)
+    #     print("current_moves: {}".format(board.num_moves))
+    #     state = player.encode_board(board.side, board.current_board,row,col)
+    #     player.save_states(state)
+    # else:
+    #     if board.is_same_board():
+    #         board.op_passed_move = True
+    #     #read the history states 
+    #     states = player.read_states()
+    #     for state in states:
+    #         player.history_states.append(state)
         
-        #read q values from file
-        player.init_q_values()
-        #get the best move
-        action = player.get_best_move(board)
-        #if the action is pass then 
-        if action[0] == -1 and action[1] == -1:
-            board.set_passed_step(player.side)
-            board.increase_move()
-            board.num_moves = read_moves()
-            print("current_moves: {} this move is PASS".format(board.num_moves))
-            action = "PASS"
+    #     #read q values from file
+    #     player.init_q_values()
+    #     #get the best move
+    #     action = player.get_best_move(board)
+    #     #if the action is pass then 
+    #     if action[0] == -1 and action[1] == -1:
+    #         board.set_passed_step(player.side)
+    #         board.increase_move()
+    #         board.num_moves = read_moves()
+    #         print("current_moves: {} this move is PASS".format(board.num_moves))
+    #         action = "PASS"
             
-            #check if game is ended
-            if board.is_game_ended():
-                result = board.check_game_status()
-                player.train_after_end(result)
-                player.clean_up_after_end(result)
-                print("predicted result: {}".format(result))
-        else:
-            #make a move
-            action = player.make_one_move(action[0],action[1])
-            print("current_moves: {} this move {}".format(board.num_moves,(action[0],action[1])))
-            state = player.encode_board(board.side, board.current_board,action[0],action[1])
-            #save state to file and append the state to history states
-            player.save_states(state)
-            player.history_states.append(state)
+    #         #check if game is ended
+    #         if board.is_game_ended():
+    #             result = board.check_game_status()
+    #             player.train_after_end(result)
+    #             player.clean_up_after_end(result)
+    #             print("predicted result: {}".format(result))
+    #     else:
+    #         #make a move
+    #         action = player.make_one_move(action[0],action[1])
+    #         print("current_moves: {} this move {}".format(board.num_moves,(action[0],action[1])))
+    #         state = player.encode_board(board.side, board.current_board,action[0],action[1])
+    #         #save state to file and append the state to history states
+    #         player.save_states(state)
+    #         player.history_states.append(state)
             
-            #check if game is ended after the move,train if game is ended
-            if board.is_game_ended():
-                result = board.check_game_status()
-                player.train_after_end(result)
-                player.clean_up_after_end(result)
-                print("predicted result: {}".format(result))
+    #         #check if game is ended after the move,train if game is ended
+    #         if board.is_game_ended():
+    #             result = board.check_game_status()
+    #             player.train_after_end(result)
+    #             player.clean_up_after_end(result)
+    #             print("predicted result: {}".format(result))
 
-        #output the move
+    #output the move
     writeOutput(action)
 
  
