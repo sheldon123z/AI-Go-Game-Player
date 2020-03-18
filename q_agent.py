@@ -352,7 +352,7 @@ class Qplayer:
         self.initial_value = initial_value
 
     def init_q_values(self):
-        with open ('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/train_set.json','r') as f:
+        with open ('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/train_set.json','r+') as f:
             # lines = f.readlines()
             # for line in lines:
             try:
@@ -418,6 +418,9 @@ class Qplayer:
                 json.dump(self.q_values,json_file,cls = NpEncoder)
                 
 
+
+
+
     def save_states(self,state):
         with open ('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/history_states.txt','a+') as file:
             file.seek(0)
@@ -427,7 +430,7 @@ class Qplayer:
             file.write(state)
 
     def read_states(self):
-        with open ('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/history_states.txt','r') as file:
+        with open ('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/history_states.txt','r+') as file:
             lines = file.readlines()
             return lines
 
@@ -592,6 +595,56 @@ if __name__ == "__main__":
     #create a player
     player = Qplayer(board,side)
     action = player.play()
+    #if this is the start of the game
+    # if(board.is_start_of_game()):
+    #     write_moves("0")
+    #     row, col = player.get_best_move(board)
+    #     action = player.make_one_move(row, col)
+    #     print("current_moves: {}".format(board.num_moves))
+    #     state = player.encode_board(board.side, board.current_board,row,col)
+    #     player.save_states(state)
+    # else:
+    #     if board.is_same_board():
+    #         board.op_passed_move = True
+    #     #read the history states 
+    #     states = player.read_states()
+    #     for state in states:
+    #         player.history_states.append(state)
+        
+    #     #read q values from file
+    #     player.init_q_values()
+    #     #get the best move
+    #     action = player.get_best_move(board)
+    #     #if the action is pass then 
+    #     if action[0] == -1 and action[1] == -1:
+    #         board.set_passed_step(player.side)
+    #         board.increase_move()
+    #         board.num_moves = read_moves()
+    #         print("current_moves: {} this move is PASS".format(board.num_moves))
+    #         action = "PASS"
+            
+    #         #check if game is ended
+    #         if board.is_game_ended():
+    #             result = board.check_game_status()
+    #             player.train_after_end(result)
+    #             player.clean_up_after_end(result)
+    #             print("predicted result: {}".format(result))
+    #     else:
+    #         #make a move
+    #         action = player.make_one_move(action[0],action[1])
+    #         print("current_moves: {} this move {}".format(board.num_moves,(action[0],action[1])))
+    #         state = player.encode_board(board.side, board.current_board,action[0],action[1])
+    #         #save state to file and append the state to history states
+    #         player.save_states(state)
+    #         player.history_states.append(state)
+            
+    #         #check if game is ended after the move,train if game is ended
+    #         if board.is_game_ended():
+    #             result = board.check_game_status()
+    #             player.train_after_end(result)
+    #             player.clean_up_after_end(result)
+    #             print("predicted result: {}".format(result))
+
     #output the move
     writeOutput(action)
 
