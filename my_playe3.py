@@ -272,7 +272,8 @@ class Board:
         for row in range(self.size):
             for col in range(self.size):
                 if(self.is_valid_place(row,col)):
-                    moves.append((row,col))
+                    point = (row,col)
+                    moves.append(point)
         return moves
 
 
@@ -342,7 +343,7 @@ class Board:
 
         
 class Qplayer:
-    def __init__(self, board = None, side = None, alpha = 0.5, gamma = 0.8 ,initial_value = 0.5):
+    def __init__(self, board = None, side = None, alpha = 0.5, gamma = 0.8 ,initial_value = 0):
         self.board = board
         self.side = side
         self.alpha = alpha
@@ -352,7 +353,7 @@ class Qplayer:
         self.initial_value = initial_value
 
     def init_q_values(self):
-        with open ('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/train_set.json','r+') as f:
+        with open ('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/train_set.json','r') as f:
             # lines = f.readlines()
             # for line in lines:
             try:
@@ -368,19 +369,20 @@ class Qplayer:
             self.q_values[state] = q_val
         return self.q_values[state]
 
-    def get_best_move(self,board):
-        legal_moves = board.legal_moves()
+    def get_best_move(self):
+        legal_moves = self.board.legal_moves()
         #如果没有legal move就返回pass
-        if not(legal_moves):
+        if not legal_moves:
             return -1, -1
 
-        state = self.encode_board(board.side, board.current_board,legal_moves[0],legal_moves[1])
+        state = self.encode_board(self.board.side, self.board.current_board)
 
         q_values = self.Q(state)
         # print(q_values,type(q_values))
         #选择一个在legal move里面并且是最大的q值的坐标点
         while True:
-            point = self.find_max_coord(q_values)
+            row, col  = self.find_max_coord(q_values)
+            point = (row,col)
             if point in legal_moves:
                 return point[0],point[1]
             #如果没有在legal move 就说明当前点不可以选，更新这个点的qvalue为-1，即在当前棋面下这个点永远不走
@@ -396,7 +398,7 @@ class Qplayer:
                 if q[i][j] > max_q:
                     max_q = q[i][j]
                     row, col = i, j
-        return (row, col)
+        return row,col
 
     def make_one_move(self,row,col):
         if row == col == -1:
@@ -418,9 +420,6 @@ class Qplayer:
                 json.dump(self.q_values,json_file,cls = NpEncoder)
                 
 
-
-
-
     def save_states(self,state):
         with open ('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/history_states.txt','a+') as file:
             file.seek(0)
@@ -430,11 +429,11 @@ class Qplayer:
             file.write(state)
 
     def read_states(self):
-        with open ('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/history_states.txt','r+') as file:
+        with open ('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/history_states.txt','r') as file:
             lines = file.readlines()
             return lines
 
-    def encode_board(self, side, board, row, col):
+    def encode_board(self, side, board):
           #2D array
         board_matrix = np.zeros((boardSize,boardSize),dtype=int)
         #self is 1 opponent is -1
@@ -447,7 +446,7 @@ class Qplayer:
                 else:
                     board_matrix[r][c] = -1
 
-        state = ''.join([str(board_matrix[j][i])+" " for j in range(boardSize) for i in range(boardSize)]) +"#"+ str(row)+ "#" + str(col)
+        state = ''.join([str(board_matrix[j][i])+" " for j in range(boardSize) for i in range(boardSize)])
         
         return state
 
@@ -498,13 +497,14 @@ class Qplayer:
             #get the step coordinate 落子坐标
             row = int(l[1])
             col = int(l[2])
-            
+            if row == -1 and col == -1:
+                continue
             #获取状态奖励
             state_reward = self.get_state_reward(board_state)
             # print("state {} state reward {}\n".format(board_state,state_reward))
             
             #获取q value matrix
-            q = self.Q(hist)
+            q = self.Q(board_state)
             
             #print("q value: {}".format(q),type(q))
 
@@ -531,32 +531,41 @@ class Qplayer:
         self.clear_history_file()
 
     def play(self):
+        #check if the game is on the first step
         if(self.board.is_start_of_game()):
             write_moves("0")
-            row, col = self.get_best_move(self.board)
+            row, col = self.get_best_move()
+            #make one move and record the state
             action = self.make_one_move(row, col)
             print("current_moves: {}".format(self.board.num_moves))
-            state = self.encode_board(side, self.board.current_board,row,col)
-            self.save_states(state)
+            state = self.encode_board(side, self.board.current_board)
+            self.save_states(state+"#"+ str(row)+ "#" + str(col))
         else:
+            #if the same board then the op is passed
             if self.board.is_same_board():
                 self.board.op_passed_move = True
-            #read the history states 
+
+            #read the history states played in former steps
             states = self.read_states()
             for state in states:
-                self.history_states.append(state)
+                self.history_states.append(state.rstrip('\n'))
             
             #read q values from file
             self.init_q_values()
             #get the best move
-            action = self.get_best_move(self.board)
-            #if the action is pass then 
+            action = self.get_best_move()
+            #if the action is pass then pass and increase move count by 1
             if action[0] == -1 and action[1] == -1:
                 self.board.set_passed_step(self.side)
                 self.board.increase_move()
+                #set the num_moves since pass also count
                 self.board.num_moves = read_moves()
                 print("current_moves: {} this move is PASS".format(self.board.num_moves))
                 action = "PASS"
+                #record passing step
+                state = self.encode_board(side, self.board.current_board)
+                self.save_states(state + "#"+ "-1" + "#" + "-1")
+                self.history_states.append(state+"#" + "-1" + "#" + "-1")
                 
                 #check if game is ended
                 if self.board.is_game_ended():
@@ -565,13 +574,13 @@ class Qplayer:
                     self.clean_up_after_end(result)
                     print("predicted result: {}".format(result))
             else:
-                #make a move
+                #make a move and increased the move count
                 action = self.make_one_move(action[0],action[1])
-                print("current_moves: {} this move {}".format(self.board.num_moves,(action[0],action[1])))
-                state = self.encode_board(side, self.board.current_board,action[0],action[1])
+                print("total_moves: {} this move {}".format(self.board.num_moves,(action[0],action[1])))
+                state = self.encode_board(side, self.board.current_board)#  +"#"+ str(action[0])+ "#" + str(action[1])
                 #save state to file and append the state to history states
-                self.save_states(state)
-                self.history_states.append(state)
+                self.save_states(state + "#"+ str(action[0])+ "#" + str(action[1]))
+                self.history_states.append(state+"#"+ str(action[0])+ "#" + str(action[1]))
                 
                 #check if game is ended after the move,train if game is ended
                 if self.board.is_game_ended():
@@ -595,56 +604,6 @@ if __name__ == "__main__":
     #create a player
     player = Qplayer(board,side)
     action = player.play()
-    #if this is the start of the game
-    # if(board.is_start_of_game()):
-    #     write_moves("0")
-    #     row, col = player.get_best_move(board)
-    #     action = player.make_one_move(row, col)
-    #     print("current_moves: {}".format(board.num_moves))
-    #     state = player.encode_board(board.side, board.current_board,row,col)
-    #     player.save_states(state)
-    # else:
-    #     if board.is_same_board():
-    #         board.op_passed_move = True
-    #     #read the history states 
-    #     states = player.read_states()
-    #     for state in states:
-    #         player.history_states.append(state)
-        
-    #     #read q values from file
-    #     player.init_q_values()
-    #     #get the best move
-    #     action = player.get_best_move(board)
-    #     #if the action is pass then 
-    #     if action[0] == -1 and action[1] == -1:
-    #         board.set_passed_step(player.side)
-    #         board.increase_move()
-    #         board.num_moves = read_moves()
-    #         print("current_moves: {} this move is PASS".format(board.num_moves))
-    #         action = "PASS"
-            
-    #         #check if game is ended
-    #         if board.is_game_ended():
-    #             result = board.check_game_status()
-    #             player.train_after_end(result)
-    #             player.clean_up_after_end(result)
-    #             print("predicted result: {}".format(result))
-    #     else:
-    #         #make a move
-    #         action = player.make_one_move(action[0],action[1])
-    #         print("current_moves: {} this move {}".format(board.num_moves,(action[0],action[1])))
-    #         state = player.encode_board(board.side, board.current_board,action[0],action[1])
-    #         #save state to file and append the state to history states
-    #         player.save_states(state)
-    #         player.history_states.append(state)
-            
-    #         #check if game is ended after the move,train if game is ended
-    #         if board.is_game_ended():
-    #             result = board.check_game_status()
-    #             player.train_after_end(result)
-    #             player.clean_up_after_end(result)
-    #             print("predicted result: {}".format(result))
-
     #output the move
     writeOutput(action)
 
