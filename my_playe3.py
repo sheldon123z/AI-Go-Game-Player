@@ -410,7 +410,7 @@ class Qplayer:
             
 
     def update_learned(self):
-        with open('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/train_set.json','r+') as json_file:
+        with open('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/train_set.json','r') as json_file:
             try:
                 dic = json.load(json_file)
                 dic.update(self.q_values)
@@ -421,7 +421,7 @@ class Qplayer:
                 
 
     def save_states(self,state):
-        with open ('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/history_states.txt','a+') as file:
+        with open ('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/history_states.txt','a') as file:
             file.seek(0)
             data = file.read()
             if len(data)>0:
