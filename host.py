@@ -374,7 +374,7 @@ class GO:
                     if result == 0: 
                         print('The game is a tie.')
                     else: 
-                        print('The winner is {}'.format('X' if result == 1 else 'O'))
+                        print('The winner is {} black score {} white score {}'.format('X' if result == 1 else 'O', self.score(1),self.score(2)))
                 return result
 
             if verbose:
@@ -441,7 +441,7 @@ def judge(n_move, verbose=False):
             if result == 0: 
                 print('The game is a tie.')
             else: 
-                print('The winner is {}'.format('X' if result == 1 else 'O'))
+                print('The winner is {}black score {} white score {}'.format('X' if result == 1 else 'O',go.score(1),go.score(2)))
         sys.exit(result)
 
     piece_type = 2 if piece_type == 1 else 1
