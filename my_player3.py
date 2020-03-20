@@ -357,9 +357,9 @@ class Board:
 
         max_dead = 0
         instant_kill_move = None
-
+        current_move = read_moves()
         for move in possible_moves: 
-        
+
             greedy = copy.deepcopy(self)
             greedy.place_stone(move[0],move[1])
             deads = greedy.has_dead_pieces(3-greedy.side)
@@ -380,9 +380,10 @@ class Board:
             print("current move in ab search {} value {}".format(move,value))
             if best_score >= value:
                 best_score = value
-            
-            alpha = max(alpha,value)
+            else:
+                alpha = max(alpha,value)
             #print("best_score{},move{}".format(best_score, move))
+        print("-------------this move is made by greedy----------------")
         return random.choice(move_dic[best_score])
 
 def Min_value(state, a, b, max_depth,eva_function,layer):
@@ -554,10 +555,10 @@ class My_player:
             else:
                 
                 start = time.time()
+                print("legal moves: {}".format(legal_moves))
                 best_move = self.board.alpha_beta_search(self.board,2)
                 end = time.time()
                 print("time cost is {}".format(end-start))
-                # print("legal moves: {}".format(legal_moves)
                 print("best move: {}".format(best_move))
                 if best_move== None:
                     return -1, -1
