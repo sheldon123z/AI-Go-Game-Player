@@ -1,11 +1,9 @@
 import random
-import sys
 import numpy as np
-from ast import literal_eval as make_tuple
-import timeit
+import time
+import signal
 import copy
 import json
-import os
 
 draw_reward = 0
 win_reward = 100
@@ -20,6 +18,32 @@ IN_PLAY = 1
 DRAW = 0
 WIN = 1
 LOSE = -1
+MIN = -9999
+MAX = 9999
+
+def set_timeout(num, callback):
+    def wrap(func):
+        def handle(signum, frame):  
+            raise RuntimeError
+ 
+        def to_do(*args, **kwargs):
+            try:
+                signal.signal(signal.SIGALRM, handle)  
+                signal.alarm(num) 
+                print('start alarm signal.')
+                r = func(*args, **kwargs)
+                print('close alarm signal.')
+                signal.alarm(0)
+                return r
+            except RuntimeError as e:
+                callback()
+ 
+        return to_do
+    return wrap
+
+def after_timeout():  # 超时后的处理函数
+    print("Time out!, play random step")
+    
 
 def readInput(path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/input.txt"):
     with open(path,'r') as input:
@@ -50,6 +74,10 @@ def write_moves(result,path="/Users/xiaodongzheng/OneDrive - University of South
     with open(path,'w') as output:
         output.write(result)
 
+def increase_move():
+    current_moves = read_moves()
+    current_moves+=1
+    write_moves(str(current_moves))
 
 class NpEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -84,24 +112,22 @@ class Board:
     def if_first_play(self):
         return self.side == black
 
-    def get_dead_opponent_pieces(self):
-        dead_pieces =[]
-        for row in range(self.size):
-            for col in range(self.size):
-                if not self.has_liberty(row,col) and current_board[row][col] == 3-self.side:
-                    dead_pieces.append(all_allies(row,col))
-                    self.dead_pieces = dead_pieces
+    def has_dead_pieces(self,side):
+        dead_pieces = []
+        for row in range(boardSize):
+            for col in range(boardSize):
+                if self.current_board[row][col] == side:
+                    if not self.has_liberty(row, col):
+                        dead_pieces.append((row,col))
         return dead_pieces
 
-    def has_dead_pieces(self):
-        return self.dead_pieces is not None
-
-    def remove_dead_pieces(self):
-        for dead in self.dead_pieces:
-            self.current_board[dead[0]][dead[1]] = blank_space  
-            #every time eliminate an opponent the capture reward+1
-            self.capture_reward += 1
-        self.dead_pieces = []
+    def remove_dead_pieces(self,side):
+        for row in range(self.size):
+            for col in range(self.size):
+                if not self.has_liberty(row,col) and current_board[row][col] == side:
+                    self.current_board[row][col] = blank_space  
+                    #every time eliminate an opponent the capture reward+1
+                    self.capture_reward += 1
 
     def current_score_without_komi(self):
         my_score = 0
@@ -115,26 +141,20 @@ class Board:
         return my_score,op_score
 
 
-    def get_current_score_with_komi(self):
-        my_score = 0
-        op_score = 0
+    def black_white_score(self):
+        black = 0
+        white = 0
         for row in range(boardSize):
             for col in range(boardSize):
-                if self.current_board[row][col]==self.side:
-                    my_score+=1
-                elif self.current_board[row][col]== (3-self.side):
-                    op_score+=1
-        if self.if_first_play():
-            my_score += self.komi
-        else:
-            op_score += self.komi
-        return my_score, op_score
+                if self.current_board[row][col]== 1:
+                    black+=1
+                elif self.current_board[row][col]== 2:
+                    white+=1
+        return black, white
         
-
     def update_game_state(self):
         #remove dead pieces
-        if self.has_dead_pieces():
-            self.remove_dead_pieces()
+        self.remove_dead_pieces(3-self.side)
         status = self.check_game_status()
         self.game_state = status
 
@@ -158,6 +178,7 @@ class Board:
             else:
                 result = DRAW
         return result
+
 
     def is_same_board(self):
         
@@ -196,33 +217,31 @@ class Board:
         #exceeded the maximum moevs
         self.num_moves = read_moves()
 
-        if self.num_moves >= self.max_moves:
-            return True
-        elif self.op_passed_move and self.me_passed_move:
+        if self.num_moves >= self.max_moves or (self.op_passed_move and self.me_passed_move):
             return True
         return False
 
-    def increase_move(self):
-        current_moves = read_moves()
-        current_moves+=1
-        write_moves(str(current_moves))
-
+    #put a stone on self board
     def place_stone(self, row, col):
         #place a stone
         self.current_board[row][col]=self.side 
-
-        #update the current moves number of our side
-        self.increase_move()
-
-        #check if has dead_piece and update the board 
-        self.update_game_state()
 
         #check if the move create capture reward
         if self.capture_reward != 0:
             reward = self.capture_reward
             self.capture_reward = 0
             return reward
-            
+
+    def make_test_move(self, side, row,col):
+        test_board = copy.deepcopy(self)
+        test_board.current_board[row][col] = side
+        test_board.side = 3-side
+        test_board.remove_dead_pieces(3-test_board.side)
+
+        return test_board
+
+
+
     def find_neighbors(self,row,col):
         neighbors = []
         if row > 0:
@@ -242,30 +261,51 @@ class Board:
         while dfs_stack:
             ally = dfs_stack.pop()
             allies.append(ally)
-            neighbors = self.find_neighbors(ally[0],ally[1])
-            neighbor_allies = []
-            for neighbor in neighbors:
-                if neighbor[0]== ally[0] and neighbor[1] == ally[1]:
-                    neighbor_allies.append(neighbor)
+            neighbor_allies = self.get_neighbor_ally(ally[0],ally[1])
             for neighbor_allay in neighbor_allies:
                 if neighbor_allay not in allies and neighbor_allay not in dfs_stack:
                     dfs_stack.append(neighbor_allay)
         return allies
     
+    def get_neighbor_ally(self, i, j):
+        
+        board = self.current_board
+        neighbors = self.find_neighbors(i, j)  # Detect neighbors
+        group_allies = []
+        # Iterate through neighbors
+        for piece in neighbors:
+            # Add to allies list if having the same color
+            if board[piece[0]][piece[1]] == board[i][j]:
+                group_allies.append(piece)
+        return group_allies
+
      #check if the move is valid
     def is_valid_place(self,row,col):
         if not self.isOccupied(row,col) or not self.isInBound(row,col):
             return False
-        if not self.has_liberty(row,col):
-            return False
+        
+        test = copy.deepcopy(self)
+        test.current_board[row][col] = test.side
+        test.remove_dead_pieces(3-test.side)
+
+        #check if is an eye
+        # if self.is_an_eye(row,col):
+        #     return False
+
+        if test.has_liberty(row,col):
+            return True
         else:
-            if self.has_dead_pieces():
-                self.update_game_state()
-            if self.is_violate_ko_rule(row,col):
+            test.remove_dead_pieces(3-test.side)
+            if not test.has_liberty(row,col):
                 return False
-            if self.is_an_eye(row,col):
-                return False
-        return True
+        #check ko rule
+        flag = True
+        for row in range(boardSize):
+            for col in range(boardSize):
+                if test.current_board[row][col] != self.previous_board[row][col]:
+                    flag = False
+                
+        return True and flag
 
     def legal_moves(self):
         moves = []
@@ -283,22 +323,17 @@ class Board:
     def isInBound(self,row,col):
         return row < boardSize and col < boardSize and row >=0 and col >= 0
         
-    def is_violate_ko_rule(self,row,col):
 
-        test = copy.deepcopy(self)
-        test.current_board[row][col] = self.side
-        test.remove_dead_pieces()
-        if(test.has_liberty(row,col)):
-            return False
-        flag = True
-        for col in range(boardSize):
-            for row in range(boardSize):
-                if test.current_board[row][col] != self.previous_board[row][col]:
-                    flag = False
-        return flag 
+    def is_acquired_position(self,row,col,side):
+
+        neighbors = self.find_neighbors(row,col)
+        for neighbor in neighbors:
+            if self.current_board[neighbor[0]][neighbor[1]] != side:
+                return False
+        return True
 
     def is_an_eye(self,row,col):
-        if not self.isInBound(row,col):
+        if not self.isInBound(row,col) or self.isOccupied(row,col):
             return False
         #检测周围的棋子都是己方棋子
         neighbors = self.find_neighbors(row,col)
@@ -313,8 +348,9 @@ class Board:
 
         #检测四个角的棋子至少有三个是己方棋子
         for point in corners:
-            if self.isInBound(point[0],point[1]) and self.current_board[point[0]][point[1]]==self.side:
-                friend_corners += 1
+            if self.isInBound(point[0],point[1]): 
+                if self.current_board[point[0]][point[1]]==self.side:
+                    friend_corners += 1
             else:
                 out_of_board_corners += 1
         if out_of_board_corners > 0:
@@ -322,17 +358,9 @@ class Board:
                 return True
         return friend_corners >= 3
 
-    def liberty_count(self,row,col):
-        count=0
-        allies = self.all_allies(row,col)
-        for ally in allies:
-            neighbors = ally.find_neighbors()
-            for neighbor in neighbors:
-                if self.current_board[neighbor[0]][neighbor[1]]==0:
-                    count+=1
-        return count
 
     def has_liberty(self,row,col):
+        flag = False
         allies = self.all_allies(row,col)
         for ally in allies:
             neighbors = self.find_neighbors(ally[0],ally[1])
@@ -341,8 +369,203 @@ class Board:
                     return True
         return False
 
+    @set_timeout(15, after_timeout)  # 限时 8 秒超时
+    def alpha_beta_search(self,state,max_depth):
+
+        ans_move = None
+        move_dic = dict()
+        best_score = np.inf
+        possible_moves = state.legal_moves()
+        alpha = MIN
+        beta = MAX
+        value = MIN
+
+        max_dead = 0
+        instant_kill_move = None
+        one_step_kill_num = 0
+        kill_move = None
+        current_move = read_moves()
+
+        if(current_move<=5):
+            while True:
+                point = random.choice(possible_moves)
+                if(point[0] > 0 and point[1]>0 and point[0]< boardSize-1 and point[1] < boardSize-1 ):
+                    print("-------------this move is made by random----------------")
+                    return point[0], point[1]
+            
+        for move in possible_moves: 
+
+            greedy = copy.deepcopy(self)
+            greedy.place_stone(move[0],move[1])
+            deads = greedy.has_dead_pieces(3-greedy.side)
+            can_kill_num = len(deads)
+            # print("leng of deads {}".format(can_kill_num))
+
+            if can_kill_num <= 2:
+                one_step_kill_num = max(one_step_kill_num,can_kill_num)
+                kill_move = move
+
+            if max_dead < can_kill_num:
+                max_dead = can_kill_num
+                instant_kill_move = move
+
+            if max_dead >=2:
+                print("find killing move {}".format(instant_kill_move))
+                print("-------------this move is made by greedy----------------")
+                return instant_kill_move
+
+            next_state = state.make_test_move(state.side, move[0],move[1])
+
+            value = Min_value(next_state, alpha, beta, max_depth, evaluation,0)
+            move_dic.setdefault(value,[]).append(move)
+            # print("current move in ab search {} value {}".format(move,value))
+            if best_score >= value:
+                best_score = value
+            alpha = max(alpha,value)
+            # print("best_score{},move{}".format(best_score, move))
+        print("-------------this move is made by alpha_beta----------------")
+        if kill_move in move_dic[best_score]:
+            return kill_move
+        return random.choice(move_dic[best_score])
+
+def Min_value(state, a, b, max_depth,eva_function,layer):
+    
+    possible_moves = state.legal_moves()
+    if read_moves() + layer >= state.max_moves or len(possible_moves)==0:
+        result = state.check_game_status()
+        black_s, white_s = state.black_white_score()
+        if result == WIN:
+            return -abs(black_s-white_s)-state.komi 
+        elif result == LOSE:
+            return abs(black_s-white_s)+state.komi
+        elif result == DRAW:
+            return 0
+
+    elif max_depth == 0 :
+        result = eva_function(state)
+        return result
+    
+    value = MAX
+    
+    for move in possible_moves:
+        next_state = state.make_test_move(state.side, move[0],move[1])
+        value = min(value, Max_value(next_state,a,b,max_depth-1,eva_function,layer+1))
+        if value <= a:
+            return value
+        b = min(b,value)
+    return value
+
+def Max_value(state, a, b, max_depth,eva_function, layer):
+
+    possible_moves = state.legal_moves()
+    if read_moves() + layer  >= state.max_moves or len(possible_moves)==0:
+        result = state.check_game_status()
+        black_s, white_s = state.black_white_score()
+        if result == WIN:
+            return  abs(black_s-white_s)+state.komi 
+        elif result == LOSE:
+            return -abs(black_s-white_s)-state.komi 
+        elif result == DRAW:
+            return 0
         
-class Qplayer:
+    elif max_depth == 0 :
+        result = eva_function(state)
+        return result
+    
+    value = MIN
+    
+    for move in possible_moves:
+        next_state = state.make_test_move(state.side, move[0],move[1])
+        value = max(value, Min_value(next_state,a,b,max_depth-1,eva_function,layer+1))
+        if value >= b:
+            return value
+        a = max(a,value)
+    return value
+
+
+
+
+def evaluation(state):
+
+    black_score = 0
+    white_score = 0
+
+    black_liberty = 0
+    white_liberty = 0
+
+    black_num = 0
+    white_num = 0
+
+    black_eyes = 0
+    white_eyes = 0
+
+    black_acquired = 0
+    white_acquired = 0
+
+    black_pos = set()
+    white_pos = set()
+    blank_pos = set()
+    for r in range(boardSize):
+        for c in range(boardSize):
+            if state.current_board[r][c] == white:
+                white_num += 1
+                if state.is_an_eye(r,c):
+                    white_eyes += 1
+                white_pos.add((r,c))
+
+            elif state.current_board[r][c] == black:
+                black_num += 1
+                if state.is_an_eye(r,c):
+                    black_eyes += 1 
+                black_pos.add((r,c))
+            else:
+                blank_pos.add((r,c))
+                if state.is_acquired_position(r,c,black):
+                    black_acquired += 1
+                if state.is_acquired_position(r,c,white):
+                    white_acquired += 1
+
+    
+
+    # for blank_chess in blank_pos:
+    #     blank_neighbors = set(state.find_neighbors(blank_chess[0],blank_chess[1]))
+    #     black_liberty += len(blank_neighbors | black_pos)
+    #     white_liberty += len(blank_neighbors | white_pos)
+    #     common_group = (black_pos | blank_neighbors | white_pos)
+    #     black_liberty -= 0.5 * len(common_group)
+    #     white_liberty -= 0.5 * len(common_group)
+
+     #计算空白格属于什么棋子的liberty
+    for blank_chess in blank_pos:
+        blank_neighbors = state.find_neighbors(blank_chess[0],blank_chess[1])
+        for neighbor in blank_neighbors:
+            in_black_flag = False
+            in_white_flag = False
+            common_flag = False
+            if neighbor in black_pos and neighbor not in white_pos:
+                black_liberty += 1
+                in_black_flag = True
+            if neighbor in white_pos and neighbor not in black_pos:
+                white_liberty += 1
+                in_white_flag = True
+            if neighbor in white_pos and neighbor in black_pos:
+                black_liberty -= 0.5
+                white_liberty -= 0.5
+                common_flag = True
+            if in_black_flag or in_white_flag or common_flag:
+                break;
+            
+    # print("black liberty {} white liberty {} black_num {} white_num {}".format(black_liberty,white_liberty,black_num,white_num))
+    black_score = black_num + black_liberty * 0.5 # + black_acquired * 0.5 #- 0.8 * black_eyes
+    white_score = white_num + white_liberty * 0.5 # + white_acquired * 0.5 #- 0.8 * white_eyes
+
+    diff = black_score - white_score
+    if state.side == black:
+        return diff
+    return -1 * diff
+
+       
+class My_player:
     def __init__(self, board = None, side = None, alpha = 0.5, gamma = 0.8 ,initial_value = 0):
         self.board = board
         self.side = side
@@ -364,21 +587,41 @@ class Qplayer:
         
     def Q(self, state):
         if state not in self.q_values:
-            q_val = np.zeros((5,5))
-            q_val.fill(self.initial_value)
-            self.q_values[state] = q_val
+            q = np.zeros((5,5))
+            q.fill(self.initial_value)
+            self.q_values[state] = q
         return self.q_values[state]
+
 
     def get_best_move(self):
         legal_moves = self.board.legal_moves()
+        best_moves=[]
+        
         #如果没有legal move就返回pass
         if not legal_moves:
             return -1, -1
 
         state = self.encode_board(self.board.side, self.board.current_board)
-
         q_values = self.Q(state)
-        # print(q_values,type(q_values))
+
+        if np.count_nonzero(q_values) == 0:
+            
+            # if(read_moves()<=3):
+            #     point = random.choice(legal_moves)
+            #     print("-------------this move is made by random----------------")
+            #     return point[0], point[1]
+            # else:
+            
+            start = time.time()
+            print("legal moves: {}".format(legal_moves))
+            point = self.board.alpha_beta_search(self.board,4)
+            end = time.time()
+            print("time cost is {}".format(end-start))
+            print("best move: {}".format(point))
+            if point== None:
+                return random.choice(legal_moves)
+            return point[0], point[1]
+            
         #选择一个在legal move里面并且是最大的q值的坐标点
         while True:
             row, col  = self.find_max_coord(q_values)
@@ -390,7 +633,7 @@ class Qplayer:
                 q_values[point[0]][point[1]] = -1
 
     def find_max_coord(self,q):
-        max_q = -np.inf
+        max_q = MIN
         row = 0
         col = 0
         for i in range(boardSize):
@@ -406,11 +649,13 @@ class Qplayer:
             return "PASS"
         else:
             self.board.place_stone(row,col)
+            #check if has dead_piece and update the board 
+            self.board.update_game_state()
             return row,col
             
 
     def update_learned(self):
-        with open('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/train_set.json','r') as json_file:
+        with open('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/train_set.json','r+') as json_file:
             try:
                 dic = json.load(json_file)
                 dic.update(self.q_values)
@@ -421,7 +666,7 @@ class Qplayer:
                 
 
     def save_states(self,state):
-        with open ('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/history_states.txt','a') as file:
+        with open ('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/history_states.txt','a+') as file:
             file.seek(0)
             data = file.read()
             if len(data)>0:
@@ -489,7 +734,7 @@ class Qplayer:
             if result == LOSE:
                 result_reward = lose_reward
         self.history_states.reverse()
-        max_q = -np.inf
+        max_q = MIN
         for hist in self.history_states:
             l = hist.split("#")
             #get the board state information
@@ -530,6 +775,7 @@ class Qplayer:
         #clear history states file
         self.clear_history_file()
 
+    
     def play(self):
         #check if the game is on the first step
         if(self.board.is_start_of_game()):
@@ -537,10 +783,12 @@ class Qplayer:
             row, col = self.get_best_move()
             #make one move and record the state
             action = self.make_one_move(row, col)
+            #update the current moves number of our side
+            increase_move()
             print("current_moves: {}".format(self.board.num_moves))
             state = self.encode_board(side, self.board.current_board)
             self.save_states(state+"#"+ str(row)+ "#" + str(col))
-        else:
+        else:# the game is not the first step
             #if the same board then the op is passed
             if self.board.is_same_board():
                 self.board.op_passed_move = True
@@ -557,7 +805,7 @@ class Qplayer:
             #if the action is pass then pass and increase move count by 1
             if action[0] == -1 and action[1] == -1:
                 self.board.set_passed_step(self.side)
-                self.board.increase_move()
+                increase_move()
                 #set the num_moves since pass also count
                 self.board.num_moves = read_moves()
                 print("current_moves: {} this move is PASS".format(self.board.num_moves))
@@ -576,6 +824,7 @@ class Qplayer:
             else:
                 #make a move and increased the move count
                 action = self.make_one_move(action[0],action[1])
+                increase_move()
                 print("total_moves: {} this move {}".format(self.board.num_moves,(action[0],action[1])))
                 state = self.encode_board(side, self.board.current_board)#  +"#"+ str(action[0])+ "#" + str(action[1])
                 #save state to file and append the state to history states
@@ -591,10 +840,6 @@ class Qplayer:
 
         return action
 
-# class MinmaxPlayer:
-#     def __init__(self):
-        
-
 if __name__ == "__main__":
 
     #initialize the board 
@@ -602,7 +847,7 @@ if __name__ == "__main__":
     board = Board(boardSize)
     board.set_board(side,last_board, current_board)
     #create a player
-    player = Qplayer(board,side)
+    player = My_player(board,side)
     action = player.play()
     #output the move
     writeOutput(action)
