@@ -235,6 +235,7 @@ class Board:
     def make_test_move(self, side, row,col):
         test_board = copy.deepcopy(self)
         test_board.current_board[row][col] = side
+        test_board.previous_board = self.current_board
         test_board.side = 3-side
         test_board.remove_dead_pieces(3-test_board.side)
 
@@ -304,8 +305,9 @@ class Board:
             for col in range(boardSize):
                 if test.current_board[row][col] != self.previous_board[row][col]:
                     flag = False
-                
-        return True and flag
+        if flag:
+            return False 
+        return True
 
     def legal_moves(self):
         moves = []
@@ -381,7 +383,7 @@ class Board:
         return False
 
     @set_timeout(9, after_timeout)  # 限时 8 秒超时
-    def alpha_beta_search(self,state,max_depth):
+    def alpha_beta_search(self,state,max_depth,branching_factor):
 
         ans_move = None
         move_dic = dict()
@@ -393,14 +395,10 @@ class Board:
 
         max_kill = 0
         one_kill_move = None
-
-        move_dic = {}
         
         current_move = read_moves()
-
-
         
-        if(current_move<=4):
+        if(current_move<=branching_factor):
             while True:
                 point = random.choice(possible_moves)
                 if(point[0] > 0 and point[1]>0 and point[0]< boardSize-1 and point[1] < boardSize-1 ):
@@ -427,59 +425,58 @@ class Board:
 
             next_state.remove_dead_pieces(3-state.side)
             next_state.side = 3-state.side
-
-            max_dead = 25
-
-            for op_move in next_state.legal_moves():
-                second_state = copy.deepcopy(next_state)
-                second_state.place_stone(op_move[0],op_move[1])
-                #检查在这一步棋后对方是否能够杀我方棋子
-                my_deads = second_state.has_dead_pieces(3-second_state.side)
-                if my_deads < max_dead:
-                    max_dead = my_deads
+            next_state.previous_board = state.current_board
+                
+            value = Min_value(next_state, alpha, beta, max_depth, evaluation,0)
+            move_dic.setdefault(value,[]).append(move)
             
+            # print("current move in ab search {} value {}".format(move,value))
+            # print("current dic {} ".format(move_dic))
 
+            if best_score >= value:
+                best_score = value
+            else:
+                alpha = max(alpha,value)
+            # print("best_score{},move{}".format(best_score, move))
+        print("-------------this move is made by alpha_beta----------------")
 
-                # if my_deads:
-                #     if len(my_deads)>=2:#如果对方能狗杀我两个以上，则不下当前这步棋
-                #         continue
-                #     elif max_kill == len(my_deads)==1:#如果当前这步棋会让我和对方都损失一枚棋子，那如果我是执黑，则亏了不下
-                #         if self.side ==  black:
-                #             one_kill_move = None
-                        
+        if one_kill_move:
+            if one_kill_move in move_dic[best_score] or current_move >= 8:
+                print("do one kill move")
+                return one_kill_move
 
-        #     value = Min_value(next_state, alpha, beta, max_depth, evaluation,0)
-        #     move_dic.setdefault(value,[]).append(move)
-            
-        #     print("current move in ab search {} value {}".format(move,value))
-        #     print("current dic {} ".format(move_dic))
-
-        #     if best_score >= value:
-        #         best_score = value
-        #     alpha = max(alpha,value)
-        #     # print("best_score{},move{}".format(best_score, move))
-        # print("-------------this move is made by alpha_beta----------------")
-
-        # if one_kill_move:
-        #     if one_kill_move in move_dic[best_score] or current_move >= 8:
-        #         return one_kill_move
-
-        # #如果是已经占领的位置则没必要优先选择
-        # if len(move_dic[best_score]) > 1:
-        #     #去掉所有的被占领的最优位置，得到一个list
-        #     ans_list = [ best_move for best_move in move_dic[best_score] if not state.is_acquired_position(best_move[0],best_move[1],state.side)]
-        #     #如果这个list存在则返回这个list中随机的一个位置
-        #     if ans_list:
-        #         if len(ans_list) > 1:
-        #              ans_list = [ best_move for best_move in ans_list if not state.is_cornor(best_move[0],best_move[1])]
-        #         return random.choice(ans_list)
-        # return random.choice(move_dic[best_score])
+        #如果是已经占领的位置则没必要优先选择
+        if len(move_dic[best_score]) > 1:
+            #去掉所有的被占领的最优位置，得到一个list
+            ans_list = [ best_move for best_move in move_dic[best_score] if not state.is_acquired_position(best_move[0],best_move[1],state.side)]
+            #如果这个list存在则返回这个list中随机的一个位置
+            if ans_list:
+                if len(ans_list) > 1:
+                    new_list = [ best_move for best_move in ans_list if not state.is_cornor(best_move[0],best_move[1])]
+                    if new_list:
+                        return random.choice(new_list)
+                return random.choice(ans_list)
+        return random.choice(move_dic[best_score])
 
 def Min_value(state, a, b, max_depth,eva_function,layer):
     
     possible_moves = state.legal_moves()
-    if read_moves() + layer >= state.max_moves or len(possible_moves)==0 or max_depth==0:
-        return eva_function(state)
+    # if read_moves() + layer >= state.max_moves or len(possible_moves)==0 or max_depth==0:
+    #     return eva_function(state)
+
+    if read_moves() + layer >= state.max_moves or len(possible_moves)==0:
+        result = state.check_game_status()
+        black_s, white_s = state.black_white_score()
+        if result == WIN:
+            return abs(black_s-white_s)+state.komi 
+        elif result == LOSE:
+            return -abs(black_s-white_s)-state.komi 
+        elif result == DRAW:
+            return 0
+
+    elif max_depth == 0 :
+        result = eva_function(state)
+        return result
 
     value = MAX
     
@@ -494,8 +491,21 @@ def Min_value(state, a, b, max_depth,eva_function,layer):
 def Max_value(state, a, b, max_depth,eva_function, layer):
 
     possible_moves = state.legal_moves()
-    if read_moves() + layer >= state.max_moves or len(possible_moves)==0 or max_depth==0:
-        return eva_function(state)
+    # if read_moves() + layer >= state.max_moves or len(possible_moves)==0 or max_depth==0:
+    #     return eva_function(state)
+    if read_moves() + layer  >= state.max_moves or len(possible_moves)==0:
+        result = state.check_game_status()
+        black_s, white_s = state.black_white_score()
+        if result == WIN:
+            return  abs(black_s-white_s)+state.komi 
+        elif result == LOSE:
+            return -abs(black_s-white_s)-state.komi 
+        elif result == DRAW:
+            return 0
+        
+    elif max_depth == 0 :
+        result = eva_function(state)
+        return result
 
     value = MIN
     
@@ -571,8 +581,8 @@ def evaluation(state):
                 break;
             
     # print("black liberty {} white liberty {} black_num {} white_num {}".format(black_liberty,white_liberty,black_num,white_num))
-    black_score = black_num + black_liberty * 0.2  + black_acquired * 0.5 #- 0.8 * black_eyes
-    white_score = white_num + white_liberty * 0.2  + white_acquired * 0.5 #- 0.8 * white_eyes
+    black_score = black_num + black_liberty * 0.25  + black_acquired * 0.5  #- 0.8 * black_eyes
+    white_score = white_num + white_liberty * 0.25  + white_acquired * 0.5 #- 0.8 * white_eyes
 
     diff = black_score - white_score
     if state.side == black:
@@ -610,12 +620,25 @@ class Alpha_beta_player:
             return -1, -1
             
         start = time.time()
-        point = self.board.alpha_beta_search(self.board,2)
+        point = self.board.alpha_beta_search(self.board,2,4)
         end = time.time()
         print("time cost is {}".format(end-start))
         print("best move: {}".format(point))
         if point== None:
-            return random.choice(legal_moves)
+            max_kill=0
+            kill_step = None
+            for move in legal_moves: 
+                next_state = copy.deepcopy(self.board)
+                next_state.place_stone(move[0],move[1])
+                op_deads = next_state.has_dead_pieces(3-self.board.side)
+                if len(op_deads) > max_kill:
+                    max_kill = len(op_deads)
+                    kill_step = move
+            if kill_step:
+                return kill_step
+            else:
+                return random.choice(legal_moves)
+
         return point[0], point[1]
 
     def play(self):
@@ -645,7 +668,7 @@ class Alpha_beta_player:
                 #check if game is ended
                 if self.board.is_game_ended():
                     result = self.board.check_game_status()
-                    print("predicted result: {}".format(result))
+                    # print("predicted result: {}".format(result))
             else:
                 #make a move and increased the move count
                 action = self.make_one_move(action[0],action[1])
