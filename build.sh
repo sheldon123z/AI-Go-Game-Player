@@ -92,7 +92,7 @@ play()
 	echo $rst
 }
 
-play_time=50
+play_time=30
 
 ### start playing ###
 

@@ -127,12 +127,18 @@ class Board:
         return dead_pieces
 
     def remove_dead_pieces(self,side):
+        dead_pieces = []
         for row in range(self.size):
             for col in range(self.size):
-                if not self.has_liberty(row,col) and self.current_board[row][col] == side:
-                    self.current_board[row][col] = blank_space  
-                    #every time eliminate an opponent the capture reward+1
-                    # self.capture_reward += 1
+                if self.current_board[row][col] == side:
+                    if not self.has_liberty(row,col):
+                        dead_pieces.append((row,col))
+        #clean the deads
+        for dead in dead_pieces:
+             self.current_board[dead[0]][dead[1]] = blank_space  
+                        
+                        #every time eliminate an opponent the capture reward+1
+                        # self.capture_reward += 1
 
     def current_score_without_komi(self):
         my_score = 0
@@ -414,6 +420,7 @@ class Board:
         move_dic = dict()
         best_score = np.inf
         possible_moves = state.legal_moves()
+        print("possible moves {}".format(possible_moves))
         alpha = MIN
         beta = MAX
         value = MIN
@@ -518,8 +525,14 @@ class Board:
                     f.close()
                     return saving_move     
         f.close()
+        if best_score == np.inf:
+            if self_killing_move:
+                if current_move == 11:
+                    return random.choice(self_killing_move)
+                else:
+                    return (-1,-1)
         #如果是已经占领的位置则没必要优先选择
-        if len(move_dic[best_score]) > 1:
+        elif len(move_dic[best_score]) > 1:
             #去掉所有的已经被我方棋子占领的位置，得到一个list
             ans_list = [ best_move for best_move in move_dic[best_score] if not state.is_acquired_position(best_move[0],best_move[1],state.side)]
             #如果这个list存在则返回这个list中随机的一个位置
@@ -697,20 +710,17 @@ class Alpha_beta_player:
             
         current_move = read_moves()
         #set different depth factor by the current move count
-        # depth = 0;
-        # if current_move <= 7:
-        #     depth = 2
-        # elif current_move >= 8:
-        #     depth = 3
+        depth_factor = 0;
+        if current_move <= 7:
+            depth_factor = 2
+        elif current_move >= 8:
+            depth_factor = 2
 
         #calculate the time once the time is higher than 9 second run a greedy algorithm to choose move kills most opponents
         start = time.time()
-        #depth factor, 2 is the best so far
-        depth_factor = 2
-        #real branch factor is 12-branch_factor
-        branch_factor = 2
+        branch_factor = 4
         #alpha-beta search
-        point = self.board.alpha_beta_search(self.board,2,4,current_move)
+        point = self.board.alpha_beta_search(self.board,depth_factor,branch_factor,current_move)
         end = time.time()
         print("time cost is {}".format(end-start))
 
