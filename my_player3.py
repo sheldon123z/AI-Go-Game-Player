@@ -1,3 +1,4 @@
+#8542804448:xiaodong zheng
 import sys
 import random
 import numpy as np
@@ -41,7 +42,12 @@ def set_timeout(num, callback):
     return wrap
 
 def callback():  # 超时后的处理函数
+    path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/cresult.txt"
+    f = open(path,"a+")
     print("Time out!, play random step")
+    print("Time out!, play random step",file=f)
+    f.close()
+
     
 
 def readInput(path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/input.txt"):
@@ -124,10 +130,9 @@ class Board:
         for row in range(self.size):
             for col in range(self.size):
                 if not self.has_liberty(row,col) and self.current_board[row][col] == side:
-                    
                     self.current_board[row][col] = blank_space  
                     #every time eliminate an opponent the capture reward+1
-                    self.capture_reward += 1
+                    # self.capture_reward += 1
 
     def current_score_without_komi(self):
         my_score = 0
@@ -379,12 +384,14 @@ class Board:
     def string_liberty_count(self,row,col):
         count = 0
         flag = False
+        counted =[]
         allies = self.all_allies(row,col)
         for ally in allies:
             neighbors = self.find_neighbors(ally[0],ally[1])
             for neighbor in neighbors:
-                if self.current_board[neighbor[0]][neighbor[1]] == blank_space:
+                if self.current_board[neighbor[0]][neighbor[1]] == blank_space and neighbor not in counted:
                     count+=1
+                    counted.append(neighbor)
         return count
 
     def is_cornor(self,row,col):
@@ -411,9 +418,15 @@ class Board:
         beta = MAX
         value = MIN
 
+        self_killing_move=[]
+
         max_kill = 0
         one_kill_move = None
-        
+
+        #count how many deads we will have 
+        max_dead = 0
+        saving_move = None
+
         if(current_move<=branching_factor):
             while True:
                 point = random.choice(possible_moves)
@@ -422,8 +435,23 @@ class Board:
                     return point[0], point[1]
             
         for move in possible_moves: 
+
+            #首先计算这步如果被敌人下会杀掉我方多少，如果发现这步敌人下了我方死一大片，则返回
+            op_view = deepcopy(state)
+            op_view.current_board[move[0]][move[1]] = 3-state.side
+            dead_num = len(op_view.get_dead_pieces(state.side))
+
+            if dead_num > max_dead: 
+                print("find one_step saving move {}".format(move))
+                print("find one_step saving move {}".format(move),file=f)
+                max_dead = dead_num
+                saving_move = move
+            if max_dead >=2:
+                print("find big saving move {}".format(move))
+                print("find big saving move {}".format(move),file=f)
+                return saving_move
             
-            next_state = deepcopy(self)
+            next_state = deepcopy(state)
             next_state.previous_board = state.current_board
 
             #make a move
@@ -435,11 +463,13 @@ class Board:
             #if max killing number bigger than 2 then just return the move 
             if max_kill >=2:
                 print("find big killing move {}".format(move))
+                print("find big killing move {}".format(move),file=f)
                 # print("-------------this move is made by greedy----------------")
                 return move
 
             #if only one dead piece found save it for later use 
             if max_kill == 1:
+                print("find one step killing move {}".format(move),file=f)
                 one_kill_move = move
 
             liberty_count = next_state.string_liberty_count(move[0],move[1])
@@ -448,8 +478,9 @@ class Board:
             if liberty_count==1 and max_kill==0:
                 print("move {} is a self-killing move".format(move))
                 print("move {} is a self-killing move".format(move),file=f)
+                self_killing_move.append(move)
                 continue
-
+            
             next_state.remove_dead_pieces(3-state.side)
             next_state.side = 3-state.side
 
@@ -472,13 +503,20 @@ class Board:
             
         print("-------------this move is made by alpha_beta----------------")
         print("-------------this move is made by alpha_beta----------------",file=f)
-
+        #能杀则杀
         if one_kill_move:
             if one_kill_move in move_dic[best_score] or current_move >= 8:
                 print("do one kill move")
                 print("do one kill move",file=f)
                 f.close()
                 return one_kill_move
+        if saving_move:
+            if saving_move not in self_killing_move:
+                if saving_move in move_dic[best_score] or current_move >=8:
+                    print("do one saving move")
+                    print("do one saving move",file=f)
+                    f.close()
+                    return saving_move     
         f.close()
         #如果是已经占领的位置则没必要优先选择
         if len(move_dic[best_score]) > 1:
@@ -659,14 +697,18 @@ class Alpha_beta_player:
             
         current_move = read_moves()
         #set different depth factor by the current move count
-        depth = 0;
-        if current_move <= 6:
-            depth = 2
-        elif current_move >= 7:
-            depth = 3
+        # depth = 0;
+        # if current_move <= 7:
+        #     depth = 2
+        # elif current_move >= 8:
+        #     depth = 3
 
         #calculate the time once the time is higher than 9 second run a greedy algorithm to choose move kills most opponents
         start = time.time()
+        #depth factor, 2 is the best so far
+        depth_factor = 2
+        #real branch factor is 12-branch_factor
+        branch_factor = 2
         #alpha-beta search
         point = self.board.alpha_beta_search(self.board,2,4,current_move)
         end = time.time()
