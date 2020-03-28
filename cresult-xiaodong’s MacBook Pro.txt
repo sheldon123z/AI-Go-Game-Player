@@ -1,0 +1,17 @@
+
+==Playing with random_player==
+Fri Mar 27 17:38:40 PDT 2020
+=====Round 1=====
+Black:TA White:You
+Clean up...
+Start Playing...
+Black makes move...
+----------
+          
+        X 
+          
+          
+          
+----------
+
+White makes move...

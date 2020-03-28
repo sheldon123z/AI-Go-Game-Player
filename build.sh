@@ -41,6 +41,7 @@ surfix=".py"
 play()
 {    
     echo Clean up... >&2
+    echo Clean up... >&2 >> cresult.txt
     if [ -f "input.txt" ]; then
         rm input.txt
     fi
@@ -50,6 +51,7 @@ play()
     cp $prefix/init/input.txt ./input.txt
 
     echo Start Playing... >&2
+    echo Start Playing... >&2 >>cresult.txt
 
 	moves=0
 	while true
@@ -59,6 +61,7 @@ play()
 	    fi
 
         echo "Black makes move..." >&2
+        echo "Black makes move..." >&2 >> cresult.txt
 		eval "$1" >&2
 		let moves+=1
 
@@ -74,6 +77,7 @@ play()
 	    fi
 
 		echo "White makes move..." >&2
+        echo "White makes move..." >&2 >> cresult.txt
 		eval "$2" >&2
 		let moves+=1
 
@@ -88,7 +92,7 @@ play()
 	echo $rst
 }
 
-play_time=2
+play_time=50
 
 ### start playing ###
 
@@ -100,6 +104,9 @@ do
     echo ""
     echo ==Playing with ${ta_agent[i]}==
     echo $(date)
+    echo "" >>cresult.txt
+    echo ==Playing with ${ta_agent[i]}== >>cresult.txt
+    echo $(date) >>cresult.txt
     ta_cmd="python3 $prefix${ta_agent[i]}$surfix"
     black_win_time=0
     white_win_time=0
@@ -109,10 +116,13 @@ do
     do
         # TA takes Black
         echo "=====Round $round====="
+        echo "=====Round $round=====" >> cresult.txt
         echo Black:TA White:You 
+        echo Black:TA White:You >> cresult.txt
         winner=$(play "$ta_cmd" "$cmd")
         if [[ "$winner" = "2" ]]; then
             echo 'White(You) win!'
+            echo 'White(You) win!'>>cresult.txt
             let white_win_time+=1
         elif [[ "$winner" = "0" ]]; then
             echo Tie.
@@ -123,16 +133,19 @@ do
 
         # Student takes Black
         echo "=====Round $((round+1))====="
+        echo "=====Round $((round+1))=====" >> cresult.txt
         echo Black:You White:TA
         winner=$(play "$cmd" "$ta_cmd")
         if [[ "$winner" = "1" ]]; then
             echo 'Black(You) win!'
+            echo 'Black(You) win!' >> cresult.txt
             let black_win_time+=1
         elif [[ "$winner" = "0" ]]; then
             echo Tie.
             let black_tie+=1
         else
             echo 'Black(You) lose.'
+            echo 'Black(You) lose.'>> cresult.txt
         fi
     done
 
@@ -140,6 +153,9 @@ do
     echo =====Summary=====  
     echo "You play as Black Player | Win: $black_win_time | Lose: $((play_time/2-black_win_time-black_tie)) | Tie: $black_tie"
     echo "You play as White Player | Win: $white_win_time | Lose: $((play_time/2-white_win_time-black_tie)) | Tie: $white_tie"
+    echo =====Summary=====  >> cresult.txt
+    echo "You play as Black Player | Win: $black_win_time | Lose: $((play_time/2-black_win_time-black_tie)) | Tie: $black_tie" >>cresult.txt
+    echo "You play as White Player | Win: $white_win_time | Lose: $((play_time/2-white_win_time-black_tie)) | Tie: $white_tie" >>cresult.txt
 done
 
 if [ -f "input.txt" ]; then

@@ -1,8 +1,9 @@
+import sys
 import random
 import numpy as np
 import time
 import signal
-import copy
+from copy import deepcopy
 import json
 
 draw_reward = 0
@@ -22,26 +23,24 @@ MIN = -9999
 MAX = 9999
 
 def set_timeout(num, callback):
-    def wrap(func):
+    def wrap(function):
         def handle(signum, frame):  
             raise RuntimeError
- 
         def to_do(*args, **kwargs):
             try:
                 signal.signal(signal.SIGALRM, handle)  
                 signal.alarm(num) 
-                print('start calculating time')
-                r = func(*args, **kwargs)
-                print('stop timer')
+                print('开始计时')
+                result = function(*args, **kwargs)
+                print('停止计时')
                 signal.alarm(0)
-                return r
+                return result
             except RuntimeError as e:
                 callback()
- 
         return to_do
     return wrap
 
-def after_timeout():  # 超时后的处理函数
+def callback():  # 超时后的处理函数
     print("Time out!, play random step")
     
 
@@ -112,7 +111,7 @@ class Board:
     def if_first_play(self):
         return self.side == black
 
-    def has_dead_pieces(self,side):
+    def get_dead_pieces(self,side):
         dead_pieces = []
         for row in range(boardSize):
             for col in range(boardSize):
@@ -124,7 +123,8 @@ class Board:
     def remove_dead_pieces(self,side):
         for row in range(self.size):
             for col in range(self.size):
-                if not self.has_liberty(row,col) and current_board[row][col] == side:
+                if not self.has_liberty(row,col) and self.current_board[row][col] == side:
+                    
                     self.current_board[row][col] = blank_space  
                     #every time eliminate an opponent the capture reward+1
                     self.capture_reward += 1
@@ -187,6 +187,7 @@ class Board:
                 if self.current_board[row][col] != self.previous_board[row][col]:
                     return False
         return True
+        
     def get_board_diff_step(self):
         
         if not self.is_same_board():
@@ -232,12 +233,17 @@ class Board:
         #     self.capture_reward = 0
         #     return reward
 
-    def make_test_move(self, side, row,col):
-        test_board = copy.deepcopy(self)
+    def create_next_state(self, side, row,col):
+        #make a copy of current board
+        test_board = deepcopy(self)
+        #set the previous board 
+        test_board.previous_board = test_board.current_board
+        #make a move
         test_board.current_board[row][col] = side
-        test_board.previous_board = self.current_board
+        #remove opponent's dead pieces
+        test_board.remove_dead_pieces(3-side)
+        #change the next state to opponent's side
         test_board.side = 3-side
-        test_board.remove_dead_pieces(3-test_board.side)
 
         return test_board
 
@@ -268,45 +274,44 @@ class Board:
                     dfs_stack.append(neighbor_allay)
         return allies
     
-    def get_neighbor_ally(self, i, j):
+    def get_neighbor_ally(self, row, col):
         
         board = self.current_board
-        neighbors = self.find_neighbors(i, j)  # Detect neighbors
-        group_allies = []
+        neighbors = self.find_neighbors(row, col)  
+        neighbor_allies = []
         # Iterate through neighbors
         for piece in neighbors:
             # Add to allies list if having the same color
-            if board[piece[0]][piece[1]] == board[i][j]:
-                group_allies.append(piece)
-        return group_allies
+            if board[piece[0]][piece[1]] == board[row][col]:
+                neighbor_allies.append(piece)
+        return neighbor_allies
 
      #check if the move is valid
     def is_valid_place(self,row,col):
         if not self.isOccupied(row,col) or not self.isInBound(row,col):
             return False
         
-        test = copy.deepcopy(self)
+        test = deepcopy(self)
         test.current_board[row][col] = test.side
-        test.remove_dead_pieces(3-test.side)
-
         #check if is an eye
         # if self.is_an_eye(row,col):
         #     return False
 
         if test.has_liberty(row,col):
             return True
+       
+        test.remove_dead_pieces(3-test.side)
+        if not test.has_liberty(row,col):
+            return False
         else:
-            test.remove_dead_pieces(3-test.side)
-            if not test.has_liberty(row,col):
-                return False
-        #check ko rule
-        flag = True
-        for row in range(boardSize):
-            for col in range(boardSize):
-                if test.current_board[row][col] != self.previous_board[row][col]:
-                    flag = False
-        if flag:
-            return False 
+            #check ko rule
+            violate = True
+            for row in range(boardSize):
+                for col in range(boardSize):
+                    if test.current_board[row][col] != test.previous_board[row][col]:
+                        violate = False
+            if violate:
+                return False 
         return True
 
     def legal_moves(self):
@@ -371,6 +376,17 @@ class Board:
                     return True
         return False
 
+    def string_liberty_count(self,row,col):
+        count = 0
+        flag = False
+        allies = self.all_allies(row,col)
+        for ally in allies:
+            neighbors = self.find_neighbors(ally[0],ally[1])
+            for neighbor in neighbors:
+                if self.current_board[neighbor[0]][neighbor[1]] == blank_space:
+                    count+=1
+        return count
+
     def is_cornor(self,row,col):
         if row == 0 and col ==0:
             return True
@@ -382,9 +398,11 @@ class Board:
             return True
         return False
 
-    @set_timeout(9, after_timeout)  # 限时 8 秒超时
-    def alpha_beta_search(self,state,max_depth,branching_factor):
+    @set_timeout(9, callback)  # 限时 9 秒超时
+    def alpha_beta_search(self,state,max_depth,branching_factor,current_move):
 
+        path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/cresult.txt"
+        f = open(path,"a+")
         ans_move = None
         move_dic = dict()
         best_score = np.inf
@@ -396,8 +414,6 @@ class Board:
         max_kill = 0
         one_kill_move = None
         
-        current_move = read_moves()
-        
         if(current_move<=branching_factor):
             while True:
                 point = random.choice(possible_moves)
@@ -407,11 +423,14 @@ class Board:
             
         for move in possible_moves: 
             
-            next_state = copy.deepcopy(self)
+            next_state = deepcopy(self)
+            next_state.previous_board = state.current_board
+
+            #make a move
             next_state.place_stone(move[0],move[1])
-            op_deads = next_state.has_dead_pieces(3-state.side)
+
+            op_deads = next_state.get_dead_pieces(3-state.side)
             max_kill = len(op_deads)
-            # print("leng of deads {}".format(can_kill_num))
 
             #if max killing number bigger than 2 then just return the move 
             if max_kill >=2:
@@ -423,37 +442,56 @@ class Board:
             if max_kill == 1:
                 one_kill_move = move
 
+            liberty_count = next_state.string_liberty_count(move[0],move[1])
+            # neighbors = next_state.get_neighbor_ally(move[0],move[1])
+            # neighbor_num = len(neighbors)
+            if liberty_count==1 and max_kill==0:
+                print("move {} is a self-killing move".format(move))
+                print("move {} is a self-killing move".format(move),file=f)
+                continue
+
             next_state.remove_dead_pieces(3-state.side)
             next_state.side = 3-state.side
-            next_state.previous_board = state.current_board
-                
+
+
+            #run minmax 
             value = Min_value(next_state, alpha, beta, max_depth, evaluation,0)
             move_dic.setdefault(value,[]).append(move)
             
-            # print("current move in ab search {} value {}".format(move,value))
+            print("current move in ab search {} value {}".format(move,value))
             # print("current dic {} ".format(move_dic))
+            print("current move in ab search {} value {}".format(move,value),file=f)
+            
 
             if best_score >= value:
                 best_score = value
             else:
                 alpha = max(alpha,value)
-            # print("best_score{},move{}".format(best_score, move))
+            print("best_score{},move{}".format(best_score, move))
+        print("current dic {} ".format(move_dic),file=f)
+            
         print("-------------this move is made by alpha_beta----------------")
+        print("-------------this move is made by alpha_beta----------------",file=f)
 
         if one_kill_move:
             if one_kill_move in move_dic[best_score] or current_move >= 8:
                 print("do one kill move")
+                print("do one kill move",file=f)
+                f.close()
                 return one_kill_move
-
+        f.close()
         #如果是已经占领的位置则没必要优先选择
         if len(move_dic[best_score]) > 1:
-            #去掉所有的被占领的最优位置，得到一个list
+            #去掉所有的已经被我方棋子占领的位置，得到一个list
             ans_list = [ best_move for best_move in move_dic[best_score] if not state.is_acquired_position(best_move[0],best_move[1],state.side)]
             #如果这个list存在则返回这个list中随机的一个位置
             if ans_list:
+                print("ans_list is{}".format(ans_list))
                 if len(ans_list) > 1:
+                    #去掉所有是角落的位置
                     new_list = [ best_move for best_move in ans_list if not state.is_cornor(best_move[0],best_move[1])]
                     if new_list:
+                        print("new_list is{}".format(new_list))
                         return random.choice(new_list)
                 return random.choice(ans_list)
         return random.choice(move_dic[best_score])
@@ -479,9 +517,9 @@ def Min_value(state, a, b, max_depth,eva_function,layer):
         return result
 
     value = MAX
-    
+
     for move in possible_moves:
-        next_state = state.make_test_move(state.side, move[0],move[1])
+        next_state = state.create_next_state(state.side, move[0],move[1])
         value = min(value, Max_value(next_state,a,b,max_depth-1,eva_function,layer+1))
         if value <= a:
             return value
@@ -510,7 +548,7 @@ def Max_value(state, a, b, max_depth,eva_function, layer):
     value = MIN
     
     for move in possible_moves:
-        next_state = state.make_test_move(state.side, move[0],move[1])
+        next_state = state.create_next_state(state.side, move[0],move[1])
         value = max(value, Min_value(next_state,a,b,max_depth-1,eva_function,layer+1))
         if value >= b:
             return value
@@ -581,8 +619,8 @@ def evaluation(state):
                 break;
             
     # print("black liberty {} white liberty {} black_num {} white_num {}".format(black_liberty,white_liberty,black_num,white_num))
-    black_score = black_num + black_liberty * 0.25  + black_acquired * 0.5  #- 0.8 * black_eyes
-    white_score = white_num + white_liberty * 0.25  + white_acquired * 0.5 #- 0.8 * white_eyes
+    black_score = black_num + black_liberty * 0.12  + black_acquired * 0.5 #- 0.8 * black_eyes
+    white_score = white_num + white_liberty * 0.12  + white_acquired * 0.5 #- 0.8 * white_eyes
 
     diff = black_score - white_score
     if state.side == black:
@@ -612,25 +650,35 @@ class Alpha_beta_player:
         write_moves("0")
 
     def get_best_move(self):
+
         legal_moves = self.board.legal_moves()
-        best_moves=[]
         
         #如果没有legal move就返回pass
         if not legal_moves:
             return -1, -1
             
+        current_move = read_moves()
+        #set different depth factor by the current move count
+        depth = 0;
+        if current_move <= 6:
+            depth = 2
+        elif current_move >= 7:
+            depth = 3
+
+        #calculate the time once the time is higher than 9 second run a greedy algorithm to choose move kills most opponents
         start = time.time()
-        point = self.board.alpha_beta_search(self.board,2,4)
+        #alpha-beta search
+        point = self.board.alpha_beta_search(self.board,2,4,current_move)
         end = time.time()
         print("time cost is {}".format(end-start))
-        print("best move: {}".format(point))
+
         if point== None:
             max_kill=0
             kill_step = None
             for move in legal_moves: 
-                next_state = copy.deepcopy(self.board)
+                next_state = deepcopy(self.board)
                 next_state.place_stone(move[0],move[1])
-                op_deads = next_state.has_dead_pieces(3-self.board.side)
+                op_deads = next_state.get_dead_pieces(3-self.board.side)
                 if len(op_deads) > max_kill:
                     max_kill = len(op_deads)
                     kill_step = move
@@ -642,6 +690,10 @@ class Alpha_beta_player:
         return point[0], point[1]
 
     def play(self):
+
+        path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/cresult.txt"
+        f = open(path,"a+")
+
         #check if the game is on the first step
         if(self.board.is_start_of_game()):
             write_moves("0")
@@ -674,6 +726,7 @@ class Alpha_beta_player:
                 action = self.make_one_move(action[0],action[1])
                 increase_move()
                 print("total_moves: {} this move {}".format(self.board.num_moves,(action[0],action[1])))
+                print("total_moves: {} this move {}".format(self.board.num_moves,(action[0],action[1])),file=f)
                 
                 #check if game is ended after the move,train if game is ended
                 if self.board.is_game_ended():

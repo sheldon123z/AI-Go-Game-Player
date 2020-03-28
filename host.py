@@ -222,6 +222,8 @@ class GO:
         :param test_check: boolean if it's a test check.
         :return: boolean indicating whether the placement is valid.
         '''   
+        path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/cresult.txt"
+        f = open(path,"a")
         board = self.board
         verbose = self.verbose
         if test_check:
@@ -258,6 +260,7 @@ class GO:
         if not test_go.find_liberty(i, j):
             if verbose:
                 print('Invalid placement. No liberty found in this position.')
+                print('Invalid placement. No liberty found in this position.',file=f)
             return False
 
         # Check special case: repeat placement causing the repeat board state (KO rule)
@@ -265,6 +268,7 @@ class GO:
             if self.died_pieces and self.compare_board(self.previous_board, test_go.board):
                 if verbose:
                     print('Invalid placement. A repeat move not permitted by the KO rule.')
+                    print('Invalid placement. A repeat move not permitted by the KO rule.',file=f)
                 return False
         return True
         
@@ -296,6 +300,21 @@ class GO:
                     print('O', end=' ')
             print()
         print('-' * len(board) * 2)
+
+        path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/cresult.txt"
+        f = open(path,"a")
+        print('-' * len(board) * 2,file=f)
+        for i in range(len(board)):
+            for j in range(len(board)):
+                if board[i][j] == 0:
+                    print(' ', end=' ',file = f)
+                elif board[i][j] == 1:
+                    print('X', end=' ',file = f)
+                else:
+                    print('O', end=' ',file = f)
+            print(file = f)
+        print('-' * len(board) * 2,file = f)
+        f.close()
 
     def game_end(self, piece_type, action="MOVE"):
         '''
@@ -353,6 +372,8 @@ class GO:
         :param verbose: whether print input hint and error information
         :return: piece type of winner of the game (0 if it's a tie).
         '''
+        path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/cresult.txt"
+        f = open(path,"a")
         self.init_board(self.size)
         # Print input hints and error message if there is a manual player
         if player1.type == 'manual' or player2.type == 'manual':
@@ -371,15 +392,18 @@ class GO:
                 result = self.judge_winner()
                 if verbose:
                     print('Game ended.')
+                    print('Game ended',file = f)
                     if result == 0: 
                         print('The game is a tie.')
                     else: 
                         print('The winner is {} black score {} white score {}'.format('X' if result == 1 else 'O', self.score(1),self.score(2)))
+                        print('The winner is {} black score {} white score {}'.format('X' if result == 1 else 'O', self.score(1),self.score(2)),file = f)
                 return result
 
             if verbose:
                 player = "X" if piece_type == 1 else "O"
                 print(player + " makes move...")
+                print(player + " makes move...",file = f)
 
             # Game continues
             if piece_type == 1: action = player1.get_input(self, piece_type)
@@ -403,11 +427,15 @@ class GO:
             if verbose:
                 self.visualize_board() # Visualize the board again
                 print()
+                print(file = f)
 
             self.n_move += 1
             self.X_move = not self.X_move # Players take turn
-
+            f.close()
 def judge(n_move, verbose=False):
+
+    path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/cresult.txt"
+    f = open(path,"a")
 
     N = 5
    
@@ -420,12 +448,15 @@ def judge(n_move, verbose=False):
         action, x, y = readOutput()
     except:
         print("output.txt not found or invalid format")
+        print("output.txt not found or invalid format",file = f)
         sys.exit(3-piece_type)
 
     if action == "MOVE":
         if not go.place_chess(x, y, piece_type):
             print('Game end.')
             print('The winner is {}'.format('X' if 3 - piece_type == 1 else 'O'))
+            print('Game end.',file = f)
+            print('The winner is {}'.format('X' if 3 - piece_type == 1 else 'O'),file = f)
             sys.exit(3 - piece_type)
 
         go.died_pieces = go.remove_died_pieces(3 - piece_type)
@@ -433,15 +464,19 @@ def judge(n_move, verbose=False):
     if verbose:
         go.visualize_board()
         print()
+        print(file=f)
 
     if go.game_end(piece_type, action):       
         result = go.judge_winner()
         if verbose:
             print('Game end.')
+            print('Game end.',file =f)
             if result == 0: 
                 print('The game is a tie.')
+                print('The game is a tie.',file=f)
             else: 
                 print('The winner is {}black score {} white score {}'.format('X' if result == 1 else 'O',go.score(1),go.score(2)))
+                print('The winner is {}black score {} white score {}'.format('X' if result == 1 else 'O',go.score(1),go.score(2)),file=f)
         sys.exit(result)
 
     piece_type = 2 if piece_type == 1 else 1
@@ -449,7 +484,7 @@ def judge(n_move, verbose=False):
     if action == "PASS":
         go.previous_board = go.board
     writeNextInput(piece_type, go.previous_board, go.board)
-
+    f.close()
     sys.exit(0)
 
 
