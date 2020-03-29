@@ -433,7 +433,8 @@ class Board:
         #count how many deads we will have 
         max_dead = 0
         saving_move = None
-
+        if(current_move==0):
+            return (2,2)
         if(current_move<=branching_factor):
             while True:
                 point = random.choice(possible_moves)
