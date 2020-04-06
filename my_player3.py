@@ -23,6 +23,8 @@ LOSE = -1
 MIN = -9999
 MAX = 9999
 
+fpath = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/Go_game_player/"
+
 def set_timeout(num, callback):
     def wrap(function):
         def handle(signum, frame):  
@@ -42,7 +44,7 @@ def set_timeout(num, callback):
     return wrap
 
 def callback():  # 超时后的处理函数
-    path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/Go_game_player/cresult.txt"
+    path = fpath + "cresult.txt"
     f = open(path,"a+")
     print("Time out!, play random step")
     print("Time out!, play random step",file=f)
@@ -50,7 +52,7 @@ def callback():  # 超时后的处理函数
 
     
 
-def readInput(path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/Go_game_player/input.txt"):
+def readInput(path = fpath + "input.txt"):
     with open(path,'r') as input:
         lines = input.readlines()
         # black or white represents 1 or 2
@@ -61,13 +63,13 @@ def readInput(path = "/Users/xiaodongzheng/OneDrive - University of Southern Cal
         
         return side, last_board, current_board
 
-def read_moves(path="/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/Go_game_player/moves.txt"):
+def read_moves(path= fpath + "moves.txt"):
     with open (path,'r') as input:
         lines = input.readlines()
         current_moves = int(lines[0])
         return current_moves 
 
-def writeOutput(result, path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/Go_game_player/output.txt"):
+def writeOutput(result, path = fpath + "output.txt"):
     with open(path,'w') as output:
         if(result == "PASS"):
             output.write("PASS")
@@ -75,7 +77,7 @@ def writeOutput(result, path = "/Users/xiaodongzheng/OneDrive - University of So
             output.write(''+ str(result[0]) + ',' + str(result[1]))
 
 
-def write_moves(result,path="/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/Go_game_player/moves.txt"):
+def write_moves(result,path= fpath + "moves.txt"):
     with open(path,'w') as output:
         output.write(result)
 
@@ -414,7 +416,7 @@ class Board:
     @set_timeout(9, callback)  # 限时 9 秒超时
     def alpha_beta_search(self,state,max_depth,branching_factor,current_move):
 
-        path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/Go_game_player/cresult.txt"
+        path = fpath+ "cresult.txt"
         f = open(path,"a+")
         ans_move = None
         move_dic = dict()
@@ -497,7 +499,7 @@ class Board:
             value = Min_value(next_state, alpha, beta, max_depth, evaluation,0)
             move_dic.setdefault(value,[]).append(move)
             
-            print("current move in ab search {} value {}".format(move,value))
+            # print("current move in ab search {} value {}".format(move,value))
             # print("current dic {} ".format(move_dic))
             print("current move in ab search {} value {}".format(move,value),file=f)
             
@@ -506,8 +508,8 @@ class Board:
                 best_score = value
             else:
                 alpha = max(alpha,value)
-            print("best_score{},move{}".format(best_score, move))
-        print("current dic {} ".format(move_dic),file=f)
+            # print("best_score{},move{}".format(best_score, move))
+        # print("current dic {} ".format(move_dic),file=f)
             
         print("-------------this move is made by alpha_beta----------------")
         print("-------------this move is made by alpha_beta----------------",file=f)
@@ -538,12 +540,12 @@ class Board:
             ans_list = [ best_move for best_move in move_dic[best_score] if not state.is_acquired_position(best_move[0],best_move[1],state.side)]
             #如果这个list存在则返回这个list中随机的一个位置
             if ans_list:
-                print("ans_list is{}".format(ans_list))
+                # print("ans_list is{}".format(ans_list))
                 if len(ans_list) > 1:
                     #去掉所有是角落的位置
                     new_list = [ best_move for best_move in ans_list if not state.is_cornor(best_move[0],best_move[1])]
                     if new_list:
-                        print("new_list is{}".format(new_list))
+                        # print("new_list is{}".format(new_list))
                         return random.choice(new_list)
                 return random.choice(ans_list)
         return random.choice(move_dic[best_score])
@@ -744,7 +746,7 @@ class Alpha_beta_player:
 
     def play(self):
 
-        path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/Go_game_player/cresult.txt"
+        path = fpath + "cresult.txt"
         f = open(path,"a+")
 
         #check if the game is on the first step
