@@ -45,7 +45,7 @@ def after_timeout():  # 超时后的处理函数
     print("Time out!, play random step")
     
 
-def readInput(path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/input.txt"):
+def readInput(path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/Go_game_player/input.txt"):
     with open(path,'r') as input:
         lines = input.readlines()
         # black or white represents 1 or 2
@@ -56,13 +56,13 @@ def readInput(path = "/Users/xiaodongzheng/OneDrive - University of Southern Cal
         
         return side, last_board, current_board
 
-def read_moves(path="/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/moves.txt"):
+def read_moves(path="/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/Go_game_player/moves.txt"):
     with open (path,'r') as input:
         lines = input.readlines()
         current_moves = int(lines[0])
         return current_moves 
 
-def writeOutput(result, path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/output.txt"):
+def writeOutput(result, path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/Go_game_player/output.txt"):
     with open(path,'w') as output:
         if(result == "PASS"):
             output.write("PASS")
@@ -70,7 +70,7 @@ def writeOutput(result, path = "/Users/xiaodongzheng/OneDrive - University of So
             output.write(''+ str(result[0]) + ',' + str(result[1]))
 
 
-def write_moves(result,path="/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/moves.txt"):
+def write_moves(result,path="/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/Go_game_player/moves.txt"):
     with open(path,'w') as output:
         output.write(result)
 
@@ -576,7 +576,7 @@ class My_player:
         self.initial_value = initial_value
 
     def init_q_values(self):
-        with open ('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/train_set.json','r') as f:
+        with open ('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/Go_game_player/train_set.json','r') as f:
             # lines = f.readlines()
             # for line in lines:
             try:
@@ -655,7 +655,7 @@ class My_player:
             
 
     def update_learned(self):
-        with open('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/train_set.json','r+') as json_file:
+        with open('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/Go_game_player/train_set.json','r+') as json_file:
             try:
                 dic = json.load(json_file)
                 dic.update(self.q_values)
@@ -666,7 +666,7 @@ class My_player:
                 
 
     def save_states(self,state):
-        with open ('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/history_states.txt','a+') as file:
+        with open ('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/Go_game_player/history_states.txt','a+') as file:
             file.seek(0)
             data = file.read()
             if len(data)>0:
@@ -674,7 +674,7 @@ class My_player:
             file.write(state)
 
     def read_states(self):
-        with open ('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/history_states.txt','r') as file:
+        with open ('/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/Go_game_player/history_states.txt','r') as file:
             lines = file.readlines()
             return lines
 
@@ -762,7 +762,7 @@ class My_player:
         
         self.update_learned()
 
-    def clear_history_file(self, path ="/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/history_states.txt"):
+    def clear_history_file(self, path ="/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/Go_game_player/history_states.txt"):
         file = open(path,'w').close()
         
             
