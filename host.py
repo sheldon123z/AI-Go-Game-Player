@@ -9,6 +9,9 @@ from copy import deepcopy
 from read import *
 from write import writeNextInput
 
+
+path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/Go_game_player/cresult.txt"
+
 class GO:
     def __init__(self, n):
         """
@@ -222,7 +225,7 @@ class GO:
         :param test_check: boolean if it's a test check.
         :return: boolean indicating whether the placement is valid.
         '''   
-        path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/cresult.txt"
+        
         f = open(path,"a")
         board = self.board
         verbose = self.verbose
@@ -301,7 +304,7 @@ class GO:
             print()
         print('-' * len(board) * 2)
 
-        path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/cresult.txt"
+        
         f = open(path,"a")
         print('-' * len(board) * 2,file=f)
         for i in range(len(board)):
@@ -372,7 +375,7 @@ class GO:
         :param verbose: whether print input hint and error information
         :return: piece type of winner of the game (0 if it's a tie).
         '''
-        path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/cresult.txt"
+        
         f = open(path,"a")
         self.init_board(self.size)
         # Print input hints and error message if there is a manual player
@@ -434,7 +437,7 @@ class GO:
             f.close()
 def judge(n_move, verbose=False):
 
-    path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/cresult.txt"
+    
     f = open(path,"a")
 
     N = 5

@@ -42,7 +42,7 @@ def set_timeout(num, callback):
     return wrap
 
 def callback():  # 超时后的处理函数
-    path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/cresult.txt"
+    path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/Go_game_player/cresult.txt"
     f = open(path,"a+")
     print("Time out!, play random step")
     print("Time out!, play random step",file=f)
@@ -50,7 +50,7 @@ def callback():  # 超时后的处理函数
 
     
 
-def readInput(path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/input.txt"):
+def readInput(path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/Go_game_player/input.txt"):
     with open(path,'r') as input:
         lines = input.readlines()
         # black or white represents 1 or 2
@@ -61,13 +61,13 @@ def readInput(path = "/Users/xiaodongzheng/OneDrive - University of Southern Cal
         
         return side, last_board, current_board
 
-def read_moves(path="/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/moves.txt"):
+def read_moves(path="/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/Go_game_player/moves.txt"):
     with open (path,'r') as input:
         lines = input.readlines()
         current_moves = int(lines[0])
         return current_moves 
 
-def writeOutput(result, path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/output.txt"):
+def writeOutput(result, path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/Go_game_player/output.txt"):
     with open(path,'w') as output:
         if(result == "PASS"):
             output.write("PASS")
@@ -75,7 +75,7 @@ def writeOutput(result, path = "/Users/xiaodongzheng/OneDrive - University of So
             output.write(''+ str(result[0]) + ',' + str(result[1]))
 
 
-def write_moves(result,path="/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/moves.txt"):
+def write_moves(result,path="/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/Go_game_player/moves.txt"):
     with open(path,'w') as output:
         output.write(result)
 
@@ -414,7 +414,7 @@ class Board:
     @set_timeout(9, callback)  # 限时 9 秒超时
     def alpha_beta_search(self,state,max_depth,branching_factor,current_move):
 
-        path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/cresult.txt"
+        path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/Go_game_player/cresult.txt"
         f = open(path,"a+")
         ans_move = None
         move_dic = dict()
@@ -744,7 +744,7 @@ class Alpha_beta_player:
 
     def play(self):
 
-        path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/random_player_battle/cresult.txt"
+        path = "/Users/xiaodongzheng/OneDrive - University of Southern California/USC/Classes/CSCI 561 Artificial Intelligence/HW/HW2/Go_game_player/cresult.txt"
         f = open(path,"a+")
 
         #check if the game is on the first step
